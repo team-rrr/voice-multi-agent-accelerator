@@ -1,0 +1,11 @@
+name: voice-multi-agent-accelerator
+metadata:
+  template: voice-multi-agent-accelerator@0.0.1
+services:
+  backend:
+    project: ./server
+    host: containerapp
+    language: python
+    docker:
+      path: Dockerfile
+      remoteBuild: true
