@@ -24,6 +24,23 @@ resource openAI 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   }
 }
 
+// Deploy gpt-4o-mini model
+resource gpt4oMiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
+  parent: openAI
+  name: 'gpt-4o-mini'
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-4o-mini'
+      version: '2024-07-18'
+    }
+  }
+  sku: {
+    name: 'Standard'
+    capacity: 10
+  }
+}
+
 @secure()
 output openAIKey string = openAI.listKeys().key1
 output openAIEndpoint string = openAI.properties.endpoint
