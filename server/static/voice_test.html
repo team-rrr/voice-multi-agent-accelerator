@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Live Echo Bot - Test Client</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #333;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    h1 {
+      text-align: center;
+      color: #4a5568;
+      margin-bottom: 10px;
+      font-size: 2.2rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 1.1rem;
+    }
+
+    .mode-selector {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 30px;
+      gap: 10px;
+    }
+
+    .mode-btn {
+      padding: 10px 20px;
+      border: 2px solid #4299e1;
+      background: white;
+      color: #4299e1;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .mode-btn.active {
+      background: #4299e1;
+      color: white;
+    }
+
+    .mode-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    #connectBtn {
+      background: linear-gradient(135deg, #4299e1, #3182ce);
+      color: white;
+    }
+
+    #connectBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(66, 153, 225, 0.4);
+    }
+
+    #disconnectBtn {
+      background: linear-gradient(135deg, #e53e3e, #c53030);
+      color: white;
+    }
+
+    #disconnectBtn:disabled {
+      background: #cbd5e0;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .voice-controls {
+      display: none;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .voice-controls.active {
+      display: flex;
+    }
+
+    #startVoiceBtn {
+      background: linear-gradient(135deg, #48bb78, #38a169);
+      color: white;
+    }
+
+    #stopVoiceBtn {
+      background: linear-gradient(135deg, #ed8936, #dd6b20);
+      color: white;
+    }
+
+    .text-input-area {
+      display: none;
+      margin-bottom: 20px;
+    }
+
+    .text-input-area.active {
+      display: flex;
+      gap: 10px;
+    }
+
+    #messageInput {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    #messageInput:focus {
+      outline: none;
+      border-color: #4299e1;
+      box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+
+    #sendBtn {
+      background: linear-gradient(135deg, #805ad5, #6b46c1);
+      color: white;
+      padding: 12px 20px;
+    }
+
+    .status {
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+
+    .status.connected {
+      background: #c6f6d5;
+      color: #22543d;
+      border: 1px solid #9ae6b4;
+    }
+
+    .status.disconnected {
+      background: #fed7d7;
+      color: #742a2a;
+      border: 1px solid #feb2b2;
+    }
+
+    .logs {
+      background: #f7fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9rem;
+    }
+
+    .log-entry {
+      margin: 8px 0;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border-left: 4px solid;
+    }
+
+    .log-sent {
+      background: #ebf8ff;
+      border-left-color: #3182ce;
+      color: #2a4a6b;
+    }
+
+    .log-received {
+      background: #f0fff4;
+      border-left-color: #38a169;
+      color: #22543d;
+    }
+
+    .log-voice {
+      background: #faf5ff;
+      border-left-color: #805ad5;
+      color: #553c9a;
+    }
+
+    .log-error {
+      background: #fed7d7;
+      border-left-color: #e53e3e;
+      color: #742a2a;
+    }
+
+    .audio-indicator {
+      display: none;
+      text-align: center;
+      margin: 10px 0;
+      color: #805ad5;
+      font-weight: 500;
+    }
+
+    .audio-indicator.active {
+      display: block;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎙️ Voice Live Echo Bot</h1>
+    <div class="subtitle">Test real-time voice interaction using Azure Voice Live API</div>
+
+    <div class="mode-selector">
+      <button class="mode-btn active" onclick="setMode('voice')" id="voiceModeBtn">
+        🎤 Voice Mode
+      </button>
+      <button class="mode-btn" onclick="setMode('text')" id="textModeBtn">
+        💬 Text Mode
+      </button>
+    </div>
+
+    <div class="controls">
+      <button id="connectBtn" onclick="connectWebSocket()">
+        🔗 Connect to Echo Bot
+      </button>
+      <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled>
+        ❌ Disconnect
+      </button>
+    </div>
+
+    <div class="voice-controls active" id="voiceControls">
+      <button id="startVoiceBtn" onclick="startVoice()" disabled>
+        🎤 Start Speaking
+      </button>
+      <button id="stopVoiceBtn" onclick="stopVoice()" disabled>
+        🛑 Stop Speaking
+      </button>
+    </div>
+
+    <div class="text-input-area" id="textInputArea">
+      <input type="text" id="messageInput" placeholder="Type your message here..." />
+      <button id="sendBtn" onclick="sendTextMessage()">Send</button>
+    </div>
+
+    <div class="audio-indicator" id="audioIndicator">
+      🔊 Processing voice...
+    </div>
+
+    <div class="status disconnected" id="status">
+      Disconnected - Click "Connect to Echo Bot" to start
+    </div>
+
+    <div class="logs" id="logs">
+      <div class="log-entry">
+        <strong>Welcome!</strong> This is the Voice Live Echo Bot test client.
+        <br>• Voice Mode: Speak and hear the bot echo your words back
+        <br>• Text Mode: Type messages and see text responses
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+    let currentMode = 'voice';
+    let mediaStream;
+    let audioContext;
+    let source;
+    let processor;
+    let isRecording = false;
+    let workletNode;
+
+    function setMode(mode) {
+      currentMode = mode;
+      
+      // Update mode buttons
+      document.getElementById('voiceModeBtn').classList.toggle('active', mode === 'voice');
+      document.getElementById('textModeBtn').classList.toggle('active', mode === 'text');
+      
+      // Show/hide controls
+      document.getElementById('voiceControls').classList.toggle('active', mode === 'voice');
+      document.getElementById('textInputArea').classList.toggle('active', mode === 'text');
+      
+      addLog(`Switched to ${mode.toUpperCase()} mode`, 'info');
+    }
+
+    function addLog(message, type = 'info') {
+      const logs = document.getElementById('logs');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+      logs.appendChild(entry);
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    function updateStatus(text, connected) {
+      const status = document.getElementById('status');
+      status.textContent = text;
+      status.className = `status ${connected ? 'connected' : 'disconnected'}`;
+    }
+
+    function connectWebSocket() {
+      const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const wsHost = window.location.host;
+      const endpoint = currentMode === 'voice' ? '/ws/voice' : '/ws/text';
+      
+      socket = new WebSocket(`${wsProtocol}://${wsHost}${endpoint}`);
+      socket.binaryType = "arraybuffer";
+
+      socket.onopen = () => {
+        addLog(`Connected to ${currentMode.toUpperCase()} endpoint`, "received");
+        updateStatus(`Connected in ${currentMode.toUpperCase()} mode`, true);
+        document.getElementById("connectBtn").disabled = true;
+        document.getElementById("disconnectBtn").disabled = false;
+        
+        if (currentMode === 'voice') {
+          document.getElementById("startVoiceBtn").disabled = false;
+          initAudioContext();
+        }
+      };
+
+      socket.onmessage = async (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          // Handle binary audio data (prioritize this like call-center project)
+          try {
+            await playAudio(event.data);
+            showAudioIndicator();
+          } catch (e) {
+            console.error("Failed to play audio:", e);
+            addLog(`Audio playback error: ${e.message}`, "error");
+          }
+        } else if (typeof event.data === "string") {
+          try {
+            const data = JSON.parse(event.data);
+            
+            // Handle JSON messages for transcription, stop audio, etc.
+            if (data.Kind === "StopAudio") {
+              addLog("🛑 Audio stopped", "voice");
+              // Stop any ongoing audio playback
+              if (workletNode) {
+                workletNode.port.postMessage({ clear: true });
+              }
+            } else if (data.Kind === "Transcription") {
+              addLog(`📝 ${data.Text}`, "received");
+            } else if (data.Kind === "AudioData" && data.AudioData && data.AudioData.Data) {
+              // Fallback: Decode base64 audio data (should not happen with raw_audio=True)
+              const base64Audio = data.AudioData.Data;
+              const audioBytes = base64ToArrayBuffer(base64Audio);
+              await playAudio(audioBytes);
+              showAudioIndicator();
+            } else {
+              // Handle regular text messages
+              handleTextMessage(data);
+            }
+          } catch (e) {
+            addLog(`Raw message: ${event.data}`, "received");
+          }
+        } else {
+          console.log("Unknown message type:", event.data);
+        }
+      };
+
+      socket.onclose = () => {
+        addLog("Disconnected from Echo Bot", "info");
+        updateStatus("Disconnected", false);
+        document.getElementById("connectBtn").disabled = false;
+        document.getElementById("disconnectBtn").disabled = true;
+        document.getElementById("startVoiceBtn").disabled = true;
+        document.getElementById("stopVoiceBtn").disabled = true;
+      };
+
+      socket.onerror = (err) => {
+        addLog("WebSocket connection error", "error");
+        console.error("WebSocket error:", err);
+      };
+    }
+
+    function disconnectWebSocket() {
+      if (isRecording) {
+        stopVoice();
+      }
+      if (socket) {
+        socket.close();
+      }
+    }
+
+    function handleTextMessage(data) {
+      const type = data.type || 'unknown';
+      const text = data.text || JSON.stringify(data);
+      
+      switch (type) {
+        case 'ready':
+          addLog(`✅ ${text}`, "received");
+          break;
+        case 'echo':
+          addLog(`Echo: ${text.replace('Echo: ', '')}`, "received");
+          break;
+        case 'Transcription':
+          addLog(`🤖 AI Response: ${text}`, "voice");
+          break;
+        case 'error':
+          addLog(`❌ Error: ${text}`, "error");
+          break;
+        default:
+          addLog(`📨 ${type}: ${text}`, "received");
+      }
+    }
+
+    function sendTextMessage() {
+      const input = document.getElementById('messageInput');
+      const message = input.value.trim();
+      
+      if (message && socket && socket.readyState === WebSocket.OPEN) {
+        const payload = {
+          type: "text",
+          text: message
+        };
+        
+        socket.send(JSON.stringify(payload));
+        addLog(`📤 Sent: ${message}`, "sent");
+        input.value = '';
+      }
+    }
+
+    async function initAudioContext() {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+        
+        // Load AudioWorklet for better audio playback
+        try {
+          await audioContext.audioWorklet.addModule('/static/audio-processor.js');
+          workletNode = new AudioWorkletNode(audioContext, 'ring-buffer-processor');
+          workletNode.connect(audioContext.destination);
+          addLog("🎵 AudioWorklet loaded successfully", "voice");
+        } catch (e) {
+          console.warn("AudioWorklet not available, using fallback:", e);
+          addLog("⚠️ AudioWorklet unavailable, using fallback playback", "voice");
+        }
+        
+        addLog("Audio context initialized", "voice");
+      } catch (e) {
+        addLog(`Failed to initialize audio: ${e.message}`, "error");
+      }
+    }
+
+    async function startVoice() {
+      if (isRecording) return;
+      
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 24000
+          }
+        });
+        
+        await audioContext.resume();
+        source = audioContext.createMediaStreamSource(mediaStream);
+        processor = audioContext.createScriptProcessor(4096, 1, 1);
+        
+        processor.onaudioprocess = (event) => {
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            const input = event.inputBuffer.getChannelData(0);
+            const pcm = float32ToInt16(input);
+            socket.send(pcm.buffer);
+          }
+        };
+        
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+        
+        isRecording = true;
+        document.getElementById("startVoiceBtn").disabled = true;
+        document.getElementById("stopVoiceBtn").disabled = false;
+        
+        addLog("🎤 Voice recording started", "voice");
+        
+      } catch (e) {
+        addLog(`Failed to start voice: ${e.message}`, "error");
+      }
+    }
+
+    function stopVoice() {
+      if (!isRecording) return;
+      
+      if (processor) {
+        processor.disconnect();
+        processor = null;
+      }
+      
+      if (source) {
+        source.disconnect();
+        source = null;
+      }
+      
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      
+      isRecording = false;
+      document.getElementById("startVoiceBtn").disabled = false;
+      document.getElementById("stopVoiceBtn").disabled = true;
+      
+      addLog("🛑 Voice recording stopped", "voice");
+    }
+
+    function float32ToInt16(buffer) {
+      const l = buffer.length;
+      const buf = new Int16Array(l);
+      for (let i = 0; i < l; i++) {
+        buf[i] = Math.max(-1, Math.min(1, buffer[i])) * 0x7FFF;
+      }
+      return buf;
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    async function playAudio(arrayBuffer) {
+      try {
+        if (!audioContext) {
+          await initAudioContext();
+        }
+        
+        // Convert Int16 PCM to Float32 for AudioWorklet (same as call-center project)
+        const int16 = new Int16Array(arrayBuffer);
+        const float32 = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) {
+          float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7FFF);
+        }
+        
+        // Send to AudioWorklet if available, otherwise fallback to direct playback
+        if (workletNode) {
+          workletNode.port.postMessage({ pcm: float32 });
+          addLog(`🔊 Playing audio via AudioWorklet (${float32.length} samples)`, "voice");
+        } else {
+          // Fallback: create buffer source for direct playback
+          const audioBuffer = audioContext.createBuffer(1, float32.length, audioContext.sampleRate);
+          audioBuffer.getChannelData(0).set(float32);
+          const source = audioContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContext.destination);
+          source.start();
+          addLog(`🔊 Playing audio via BufferSource (${audioBuffer.duration.toFixed(2)}s)`, "voice");
+        }
+      } catch (e) {
+        console.error("Error playing audio:", e);
+        addLog(`Audio playback error: ${e.message}`, "error");
+      }
+    }
+
+    function showAudioIndicator() {
+      const indicator = document.getElementById('audioIndicator');
+      indicator.classList.add('active');
+      setTimeout(() => {
+        indicator.classList.remove('active');
+      }, 2000);
+    }
+
+    // Allow Enter key to send message in text mode
+    document.getElementById('messageInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendTextMessage();
+      }
+    });
+
+    // Initialize in voice mode
+    setMode('voice');
+  </script>
+</body>
+</html>
