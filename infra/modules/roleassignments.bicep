@@ -16,15 +16,7 @@ resource aiServicesRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-
   }
 }
 
-resource aiAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(aiServicesId, identityPrincipalId, 'ai-reader')
-  scope: aiServicesResource
-  properties: {
-    principalId: identityPrincipalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
-    principalType: 'ServicePrincipal'
-  }
-}
+// Removed generic Reader role (aiAccess) to avoid duplicate / unnecessary assignments once manual access granted.
 
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-02-01' existing = {

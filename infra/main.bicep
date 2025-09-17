@@ -13,6 +13,9 @@ param environmentName string
 ])
 param location string
 
+@description('Create RBAC role assignments (set false if roles were added manually)')
+param createRoleAssignments bool = true
+
 var uniqueSuffix = substring(uniqueString(subscription().id, environmentName), 0, 5)
 
 var tags = {'azd-env-name': environmentName }
@@ -58,6 +61,8 @@ module registry 'modules/containerregistry.bicep' = {
     uniqueSuffix: uniqueSuffix
     identityName: appIdentity.outputs.name
     tags: tags
+    // Reuse createRoleAssignments toggle for ACR pull role as well
+    createAcrPullAssignment: createRoleAssignments
   }
 }
 
@@ -125,7 +130,7 @@ module keyvault 'modules/keyvault.bicep' = {
 }
 
 // Add role assignments 
-module RoleAssignments 'modules/roleassignments.bicep' = {
+module RoleAssignments 'modules/roleassignments.bicep' = if (createRoleAssignments) {
   scope: rg
   name: 'role-assignments'
   params: {
@@ -133,8 +138,11 @@ module RoleAssignments 'modules/roleassignments.bicep' = {
     aiServicesId: aiServices.outputs.aiServicesId
     keyVaultName: sanitizedKeyVaultName
   }
-  dependsOn: [ keyvault ] 
+  dependsOn: [ keyvault ]
 }
+
+// Container App dependency array to ensure ordering if role assignments are created
+var containerAppDeps = createRoleAssignments ? [RoleAssignments] : []
 
 module containerapp 'modules/containerapp.bicep' = {
   name: 'containerapp-deployment'
@@ -154,7 +162,7 @@ module containerapp 'modules/containerapp.bicep' = {
     openAIEndpoint: openAIAccount.outputs.openAIEndpoint
     keyVaultName: sanitizedKeyVaultName
   }
-  dependsOn: [RoleAssignments]
+  dependsOn: containerAppDeps
 }
 
 

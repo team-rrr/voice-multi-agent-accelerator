@@ -102,7 +102,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
 resource containerApp 'Microsoft.App/containerApps@2024-10-02-preview' = {
   name: containerAppName
   location: location
-  tags: union(tags, { 'azd-service-name': 'app' })
+  tags: union(tags, { 'azd-service-name': 'backend' })
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: { '${identityId}': {} }
@@ -128,11 +128,11 @@ resource containerApp 'Microsoft.App/containerApps@2024-10-02-preview' = {
       containers: [
         {
           name: 'main'
-          image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+          image: '${containerRegistryName}.azurecr.io/backend:latest'
           env: allEnv
           resources: {
-            cpu: json('2.0')
-            memory: '4.0Gi'
+            cpu: json('0.25')
+            memory: '0.5Gi'
           }
         }
       ]
