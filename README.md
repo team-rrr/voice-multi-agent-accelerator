@@ -1,4 +1,51 @@
-# Voice Multi-Agent Accelerat```text
+# Voice Multi-Agent Accelerator: Real-Time Voice AI with Azure Voice Live API
+
+*Azure Sample accelerator for Microsoft Hackathon 2025 - Real-time voice interaction system with complete multi-agent orchestration.*
+
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Healthcare Multi-Agent System](#healthcare-multi-agent-system)
+- [Architecture Overview](#architecture-overview)
+- [Quick Start](#quick-start)
+- [Repository Structure](#repository-structure)
+- [Core Components](#core-components)
+- [Voice Processing Pipeline](#voice-processing-pipeline)
+- [Multi-Agent Architecture](#multi-agent-architecture---fully-implemented)
+- [Security & Configuration](#security--configuration)
+- [Development Workflow](#development-workflow)
+- [Project Status](#project-status)
+- [Deployment](#deploying-infrastructure-azure-developer-cli)
+- [Troubleshooting](#rbac-troubleshooting)
+- [Monitoring & Debugging](#monitoring--debugging)
+
+## Project Overview
+
+A **real-time voice interaction system** featuring:
+
+- **Multi-Agent Orchestration** with Semantic Kernel integration
+- **Healthcare Caregiver Assistant** with specialized agents (InfoAgent, PatientContextAgent, ActionAgent)
+- **Azure Voice Live API** integration for real-time speech processing  
+- **FastAPI WebSocket** backend with professional web interface
+- **Structured Response System** with appointment preparation checklists
+- **Dual Mode Support** - Voice and Text interaction
+- **Cloud-native deployment** on Azure Container Apps
+
+## Healthcare Multi-Agent System
+
+**Complete Multi-Agent System Implementation:**
+
+- **InfoAgent**: Gathers patient symptoms and medical history
+- **PatientContextAgent**: Analyzes patient context and appointment relevance  
+- **ActionAgent**: Generates personalized appointment preparation checklists
+- **Orchestration**: Sequential agent execution with context passing
+- **Voice Integration**: Full voice-to-orchestration-to-speech pipeline
+
+## Architecture Overview
+
+### Multi-Agent Voice Pipeline
+
+```text
 User Voice Input (Caregiver Query)
     ↓ WebSocket (PCM Audio)
 FastAPI Server (app_voice_live.py)
@@ -16,53 +63,6 @@ Multi-Agent Orchestration    │
 Audio Synthesis ─────────────┘
     ↓ WebSocket (Binary Audio)
 Web Client (Professional UI + Card Display)
-``` AI with Azure Voice Live API
-
-*Azure Sample accelerator for Microsoft Hackathon 2025 - Real-time voice interaction system with complete multi-agent orchestration.*
-
-## Project Overview
-
-A **real-time voice interaction system** featuring:
-
-- **Multi-Agent Orchestration** with Semantic Kernel integration
-- **Healthcare Caregiver Assistant** with specialized agents (InfoAgent, PatientContextAgent, ActionAgent)
-- **Azure Voice Live API** integration for real-time speech processing  
-- **FastAPI WebSocket** backend with professional web interface
-- **Structured Response System** with appointment preparation checklists
-- **Dual Mode Support** - Voice and Text interaction
-- **Cloud-native deployment** on Azure Container Apps
-
-## Healthcare Multi-Agent System
-
-**Complete Implementation of Day 4 Requirements:**
-- **InfoAgent**: Gathers patient symptoms and medical history
-- **PatientContextAgent**: Analyzes patient context and appointment relevance  
-- **ActionAgent**: Generates personalized appointment preparation checklists
-- **Orchestration**: Sequential agent execution with context passing
-- **Voice Integration**: Full voice-to-orchestration-to-speech pipeline
-
-## Architecture Overview
-
-### Multi-Agent Voice Pipeline
-
-```text
-🎙️ User Voice Input (Caregiver Query)
-    ↓ WebSocket (PCM Audio)
-🌐 FastAPI Server (app_voice_live.py)
-    ↓ Voice Live Handler + Orchestration Callback
-📡 Azure Voice Live API ────────┐
-    ├── 🎤 Speech-to-Text       │
-    └── 🔊 Text-to-Speech       │
-                                │
-🧠 Multi-Agent Orchestration    │
-    ├── 📋 InfoAgent            │
-    ├── � PatientContextAgent  │
-    ├── ⚡ ActionAgent          │
-    └── � Structured Response  │
-    ↓                           │
-📡 Audio Synthesis ─────────────┘
-    ↓ WebSocket (Binary Audio)
-🎧 Web Client (Professional UI + Card Display)
 ```
 
 ## Agent Orchestration Flow
@@ -95,7 +95,7 @@ python -m uvicorn app_voice_live:app --host 0.0.0.0 --port 8000 --reload
 # Navigate to: http://localhost:8000/static/voice_test.html
 ```
 
-### Day 4 Complete: Test Multi-Agent Voice Interaction
+### Testing Multi-Agent Voice Interaction
 
 1. **Connect**: Click "Connect" button
 2. **Voice Mode**: Select "Voice Mode" (default)
@@ -191,7 +191,7 @@ voice-multi-agent-accelerator/
 1. **Browser** → Microphone capture (getUserMedia)
 2. **WebSocket** → PCM audio streaming to server
 3. **Voice Live API** → Real-time Speech-to-Text
-4. **GPT-4o-mini** → Echo response generation
+4. **Multi-Agent Orchestration** → Healthcare-focused response generation
 5. **Neural TTS** → Ava voice synthesis
 6. **WebSocket** → Binary audio streaming to client
 7. **AudioWorklet** → Smooth audio playback
@@ -345,16 +345,16 @@ docker build -t voice-app server/
 docker run -p 8000:8000 --env-file server/.env voice-app
 ```
 
-## COMPLETED: Day 4 Requirements
+## Project Status
 
-### Phase 1: Core Foundation - COMPLETE
+### Core Foundation - IMPLEMENTED
 
 - Azure Voice Live API integration
 - Real-time audio streaming  
 - Azure deployment infrastructure
 - Security best practices
 
-### Phase 2: Multi-Agent Framework - COMPLETE
+### Multi-Agent Framework - IMPLEMENTED
 
 - **Semantic Kernel integration** with Microsoft's AI orchestration framework
 - **Healthcare agent system** (InfoAgent, PatientContextAgent, ActionAgent)
@@ -363,14 +363,14 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 - **Structured response system** with spoken + card data
 - **Professional UI** with card display and conversation formatting
 
-### Phase 3: Specialized Healthcare Agents - COMPLETE
+### Specialized Healthcare Agents - IMPLEMENTED
 
 - **InfoAgent**: Symptom and medical history extraction
 - **PatientContextAgent**: Appointment relevance analysis  
 - **ActionAgent**: Personalized preparation checklist generation
 - **Orchestration Engine**: Coordinates all agents with context awareness
 
-### Day 4 Verification Checklist - ALL COMPLETE
+### System Verification Checklist
 
 1. **Run the local server** - `python -m uvicorn app_voice_live:app --host 0.0.0.0 --port 8000 --reload`
 2. **Connect with a voice client** - Professional web interface with Voice/Text modes
