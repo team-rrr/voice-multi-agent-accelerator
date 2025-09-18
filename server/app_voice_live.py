@@ -29,9 +29,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.websocket("/ws/voice")
 async def websocket_voice_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for voice interaction using Voice Live API."""
+    """WebSocket endpoint for voice interaction with multi-agent orchestration using Voice Live API."""
     await websocket.accept()
-    logger.info("Voice WebSocket connection accepted")
+    logger.info("Voice Multi-Agent WebSocket connection accepted")
 
     # Get configuration
     config = {
@@ -49,8 +49,8 @@ async def websocket_voice_endpoint(websocket: WebSocket):
         }))
         return
 
-    # Initialize Voice Live handler
-    handler = VoiceLiveHandler(config)
+    # Initialize Voice Live handler with orchestration callback
+    handler = VoiceLiveHandler(config, on_final_transcription=run_orchestration)
     
     try:
         # Set up client WebSocket connection
@@ -61,8 +61,8 @@ async def websocket_voice_endpoint(websocket: WebSocket):
         
         # Send ready message to client
         await websocket.send_text(json.dumps({
-            "type": "ready",
-            "text": "Voice Live Echo Bot is ready! You can speak or send text messages."
+            "type": "ready", 
+            "text": "Voice Multi-Agent Assistant is ready! You can start speaking to get personalized appointment preparation help."
         }))
         
         # Message handling loop
@@ -74,20 +74,14 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                 if message["type"] == "websocket.receive":
                     # Handle different message types
                     if "text" in message:
-                        # Text message
+                        # Handle ping messages for connection health checks
                         data = json.loads(message["text"])
                         
-                        if data.get("type") == "text":
-                            # Send text to Voice Live for processing
-                            text = data.get("text", "")
-                            logger.info(f"Received text from client: {text}")
-                            await handler.text_to_voicelive(text)
-                            
-                        elif data.get("type") == "ping":
+                        if data.get("type") == "ping":
                             # Respond to ping
                             await websocket.send_text(json.dumps({
                                 "type": "pong",
-                                "text": "Echo Bot is alive"
+                                "text": "Voice Multi-Agent Bot is alive"
                             }))
                             
                     elif "bytes" in message:

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voice Live Echo Bot - Test Client</title>
+  <title>Voice Multi-Agent Assistant - Appointment Preparation</title>
   <style>
     body {
       margin: 0;
@@ -64,22 +64,47 @@
       transform: translateY(-2px);
     }
 
+    .voice-only {
+      display: none;
+    }
+
+    .voice-only.active {
+      display: inline-block;
+    }
+
+    .mode-controls {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 15px;
+      flex-wrap: nowrap;
+      padding: 15px 20px;
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 2px solid #e2e8f0;
+    }
+
     .controls {
       display: flex;
-      gap: 15px;
-      flex-wrap: wrap;
+      gap: 12px;
       justify-content: center;
+      align-items: center;
       margin-bottom: 20px;
+      flex-wrap: nowrap;
     }
 
     button {
-      padding: 12px 24px;
-      font-size: 1rem;
+      padding: 10px 20px;
+      font-size: 0.9rem;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
       transition: all 0.3s ease;
       font-weight: 500;
+      min-width: 140px;
+      text-align: center;
+      white-space: nowrap;
     }
 
     #connectBtn {
@@ -106,8 +131,9 @@
     .voice-controls {
       display: none;
       justify-content: center;
-      gap: 15px;
+      gap: 12px;
       margin-bottom: 20px;
+      align-items: center;
     }
 
     .voice-controls.active {
@@ -174,6 +200,51 @@
       border: 1px solid #feb2b2;
     }
 
+    .card-display {
+      background: #f8f9ff;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .card-display.active {
+      display: block;
+    }
+
+    .card-title {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #2d3748;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .card-section {
+      margin-bottom: 15px;
+      padding: 12px;
+      background: white;
+      border-radius: 6px;
+      border-left: 4px solid #4299e1;
+    }
+
+    .card-section h3 {
+      margin: 0 0 8px 0;
+      color: #2d3748;
+      font-size: 1rem;
+    }
+
+    .card-section ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .card-section li {
+      margin: 4px 0;
+      color: #4a5568;
+    }
+
     .logs {
       background: #f7fafc;
       border: 2px solid #e2e8f0;
@@ -190,6 +261,50 @@
       padding: 8px 12px;
       border-radius: 6px;
       border-left: 4px solid;
+      line-height: 1.5;
+    }
+
+    .log-entry p {
+      margin: 6px 0;
+      line-height: 1.5;
+    }
+
+    .log-entry p:first-child {
+      margin-top: 0;
+    }
+
+    .log-entry p:last-child {
+      margin-bottom: 0;
+    }
+
+    .log-entry p:empty {
+      display: none; /* Hide empty paragraphs */
+    }
+
+    .log-entry ul {
+      margin: 8px 0;
+      padding-left: 20px;
+      list-style-type: disc;
+    }
+
+    .log-entry li {
+      margin: 3px 0;
+      line-height: 1.4;
+    }
+
+    .log-entry strong {
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .log-entry br {
+      margin: 0;
+      line-height: 0;
+    }
+
+    /* Remove extra spacing from empty elements */
+    .log-entry *:empty {
+      display: none;
     }
 
     .log-sent {
@@ -237,33 +352,32 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎙️ Voice Live Echo Bot</h1>
-    <div class="subtitle">Test real-time voice interaction using Azure Voice Live API</div>
+    <h1>Voice Multi-Agent Assistant</h1>
+    <div class="subtitle">AI-powered appointment preparation with personalized guidance</div>
 
-    <div class="mode-selector">
+    <!-- Mode Selection Row -->
+    <div class="mode-controls">
       <button class="mode-btn active" onclick="setMode('voice')" id="voiceModeBtn">
-        🎤 Voice Mode
+        Voice Mode
       </button>
       <button class="mode-btn" onclick="setMode('text')" id="textModeBtn">
-        💬 Text Mode
+        Text Mode
       </button>
     </div>
 
+    <!-- Action Controls Row -->
     <div class="controls">
       <button id="connectBtn" onclick="connectWebSocket()">
-        🔗 Connect to Echo Bot
+        Connect
       </button>
       <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled>
-        ❌ Disconnect
+        Disconnect
       </button>
-    </div>
-
-    <div class="voice-controls active" id="voiceControls">
-      <button id="startVoiceBtn" onclick="startVoice()" disabled>
-        🎤 Start Speaking
+      <button id="startVoiceBtn" onclick="startVoice()" disabled class="voice-only">
+        Start Speaking
       </button>
-      <button id="stopVoiceBtn" onclick="stopVoice()" disabled>
-        🛑 Stop Speaking
+      <button id="stopVoiceBtn" onclick="stopVoice()" disabled class="voice-only">
+        Stop Speaking
       </button>
     </div>
 
@@ -277,14 +391,20 @@
     </div>
 
     <div class="status disconnected" id="status">
-      Disconnected - Click "Connect to Echo Bot" to start
+      Disconnected - Click "Connect to AI Assistant" to start
+    </div>
+
+    <div class="card-display" id="cardDisplay">
+      <div class="card-title" id="cardTitle">Appointment Preparation Guide</div>
+      <div id="cardContent"></div>
     </div>
 
     <div class="logs" id="logs">
       <div class="log-entry">
-        <strong>Welcome!</strong> This is the Voice Live Echo Bot test client.
-        <br>• Voice Mode: Speak and hear the bot echo your words back
-        <br>• Text Mode: Type messages and see text responses
+        <strong>Welcome!</strong> This is the Voice Multi-Agent Assistant.
+        <br>• Voice Mode: Speak about your medical appointments and get personalized preparation guidance
+        <br>• Text Mode: Type your appointment details for structured responses
+        <br><br><strong>Try saying:</strong> "I have an appointment with Dr. Smith next week for chest pain"
       </div>
     </div>
   </div>
@@ -298,6 +418,7 @@
     let processor;
     let isRecording = false;
     let workletNode;
+    let readyMessageShown = false;
 
     function setMode(mode) {
       currentMode = mode;
@@ -306,8 +427,11 @@
       document.getElementById('voiceModeBtn').classList.toggle('active', mode === 'voice');
       document.getElementById('textModeBtn').classList.toggle('active', mode === 'text');
       
-      // Show/hide controls
-      document.getElementById('voiceControls').classList.toggle('active', mode === 'voice');
+      // Show/hide voice-specific buttons
+      document.getElementById('startVoiceBtn').classList.toggle('active', mode === 'voice');
+      document.getElementById('stopVoiceBtn').classList.toggle('active', mode === 'voice');
+      
+      // Show/hide text input area
       document.getElementById('textInputArea').classList.toggle('active', mode === 'text');
       
       addLog(`Switched to ${mode.toUpperCase()} mode`, 'info');
@@ -317,9 +441,107 @@
       const logs = document.getElementById('logs');
       const entry = document.createElement('div');
       entry.className = `log-entry log-${type}`;
-      entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+      
+      // Extract the actual content after emoji/prefix for AI responses
+      let displayMessage = message;
+      let actualContent = message;
+      
+      // For AI responses, separate the emoji/prefix from the content
+      if (message.includes('🤖 AI Response: ')) {
+        const parts = message.split('🤖 AI Response: ');
+        if (parts.length > 1) {
+          displayMessage = '🤖 AI Response: ';
+          actualContent = parts[1];
+        }
+      }
+      
+      // Format only the actual content, not the emoji/prefix
+      const formattedContent = actualContent === message ? 
+        formatConversationText(message) : 
+        displayMessage + formatConversationText(actualContent);
+      
+      entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${formattedContent}`;
+      
       logs.appendChild(entry);
       logs.scrollTop = logs.scrollHeight;
+    }
+
+    function formatConversationText(text) {
+      if (!text || typeof text !== 'string') return text;
+      
+      // Clean up the text first - remove excessive whitespace and normalize
+      let cleaned = text
+        .replace(/\r\n/g, '\n')  // Normalize line endings
+        .replace(/\n\s*\n\s*\n/g, '\n\n')  // Remove triple+ newlines
+        .trim();
+      
+      // Handle bold text formatting (**text** to <strong>text</strong>)
+      cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      
+      // Split into sections for better processing
+      let sections = cleaned.split(/\n\s*\n/);
+      let formattedSections = [];
+      
+      for (let section of sections) {
+        if (!section.trim()) continue; // Skip empty sections
+        
+        // Check if this section contains bullet points
+        if (section.includes('\n• ') || section.includes('\n* ') || section.includes('\n- ')) {
+          let lines = section.split('\n');
+          let beforeList = [];
+          let listItems = [];
+          let inList = false;
+          
+          for (let line of lines) {
+            line = line.trim();
+            if (!line) continue; // Skip empty lines
+            
+            if (line.startsWith('• ') || line.startsWith('* ') || line.startsWith('- ')) {
+              inList = true;
+              // Remove the bullet and add as list item
+              let itemText = line.replace(/^[•\*\-]\s*/, '');
+              listItems.push(`<li>${itemText}</li>`);
+            } else if (!inList) {
+              beforeList.push(line);
+            } else {
+              // Text after bullets - could be continuation or new paragraph
+              if (line.startsWith('• ') || line.startsWith('* ') || line.startsWith('- ')) {
+                let itemText = line.replace(/^[•\*\-]\s*/, '');
+                listItems.push(`<li>${itemText}</li>`);
+              } else {
+                // This might be continuation of previous item or new paragraph
+                // For now, treat as new paragraph after list
+                if (listItems.length > 0) {
+                  formattedSections.push(
+                    (beforeList.length > 0 ? `<p>${beforeList.join(' ')}</p>` : '') +
+                    `<ul>${listItems.join('')}</ul>`
+                  );
+                  beforeList = [line];
+                  listItems = [];
+                  inList = false;
+                }
+              }
+            }
+          }
+          
+          // Add remaining content
+          let result = '';
+          if (beforeList.length > 0) {
+            result += `<p>${beforeList.join(' ')}</p>`;
+          }
+          if (listItems.length > 0) {
+            result += `<ul>${listItems.join('')}</ul>`;
+          }
+          
+          if (result) formattedSections.push(result);
+          
+        } else {
+          // Regular paragraph - no bullets
+          formattedSections.push(`<p>${section.trim()}</p>`);
+        }
+      }
+      
+      return formattedSections.join('');
     }
 
     function updateStatus(text, connected) {
@@ -390,12 +612,13 @@
       };
 
       socket.onclose = () => {
-        addLog("Disconnected from Echo Bot", "info");
+        addLog("Disconnected from AI Assistant", "info");
         updateStatus("Disconnected", false);
         document.getElementById("connectBtn").disabled = false;
         document.getElementById("disconnectBtn").disabled = true;
         document.getElementById("startVoiceBtn").disabled = true;
         document.getElementById("stopVoiceBtn").disabled = true;
+        readyMessageShown = false; // Reset flag for next connection
       };
 
       socket.onerror = (err) => {
@@ -415,24 +638,120 @@
 
     function handleTextMessage(data) {
       const type = data.type || 'unknown';
-      const text = data.text || JSON.stringify(data);
       
       switch (type) {
         case 'ready':
-          addLog(`✅ ${text}`, "received");
+          if (!readyMessageShown) {
+            addLog(`✅ ${data.text}`, "received");
+            readyMessageShown = true;
+          }
+          break;
+        case 'orchestration_response':
+          // Handle multi-agent response
+          if (data.spoken_response) {
+            // Clean and format the AI response properly
+            const cleanResponse = data.spoken_response.trim();
+            if (cleanResponse) {
+              addLog(`🤖 AI Response: ${cleanResponse}`, "voice");
+            }
+          }
+          if (data.card_data) {
+            displayCard(data.card_data);
+            addLog(`📋 Generated appointment preparation checklist`, "received");
+          }
+          break;
+        case 'card':
+          // Handle card data from voice orchestration
+          if (data.payload) {
+            displayCard(data.payload);
+            // Only log once when card is first displayed
+            if (!document.getElementById('cardDisplay').classList.contains('active')) {
+              addLog(`📋 Generated appointment preparation checklist`, "received");
+            }
+          }
           break;
         case 'echo':
-          addLog(`Echo: ${text.replace('Echo: ', '')}`, "received");
+          addLog(`Echo: ${data.text.replace('Echo: ', '')}`, "received");
           break;
         case 'Transcription':
-          addLog(`🤖 AI Response: ${text}`, "voice");
+          addLog(`🤖 AI Response: ${data.text}`, "voice");
           break;
         case 'error':
-          addLog(`❌ Error: ${text}`, "error");
+          addLog(`❌ Error: ${data.text}`, "error");
           break;
         default:
+          const text = data.text || JSON.stringify(data);
           addLog(`📨 ${type}: ${text}`, "received");
       }
+    }
+
+    function displayCard(cardData) {
+      const cardDisplay = document.getElementById('cardDisplay');
+      const cardTitle = document.getElementById('cardTitle');
+      const cardContent = document.getElementById('cardContent');
+
+      // Set title
+      cardTitle.textContent = cardData.title || 'Appointment Preparation Guide';
+
+      // Build card content
+      let html = '';
+
+      // Appointment details
+      if (cardData.appointment_details) {
+        html += '<div class="card-section">';
+        html += '<h3>📅 Appointment Details</h3>';
+        html += '<ul>';
+        if (cardData.appointment_details.doctor) {
+          html += `<li><strong>Doctor:</strong> ${cardData.appointment_details.doctor}</li>`;
+        }
+        if (cardData.appointment_details.reason) {
+          html += `<li><strong>Reason:</strong> ${cardData.appointment_details.reason}</li>`;
+        }
+        if (cardData.appointment_details.timing) {
+          html += `<li><strong>When:</strong> ${cardData.appointment_details.timing}</li>`;
+        }
+        html += '</ul>';
+        html += '</div>';
+      }
+
+      // Preparation items
+      if (cardData.preparation_items && cardData.preparation_items.length > 0) {
+        html += '<div class="card-section">';
+        html += '<h3>📝 What to Bring/Prepare</h3>';
+        html += '<ul>';
+        cardData.preparation_items.forEach(item => {
+          html += `<li>${item}</li>`;
+        });
+        html += '</ul>';
+        html += '</div>';
+      }
+
+      // Questions to ask
+      if (cardData.questions_to_ask && cardData.questions_to_ask.length > 0) {
+        html += '<div class="card-section">';
+        html += '<h3>❓ Questions to Ask Your Doctor</h3>';
+        html += '<ul>';
+        cardData.questions_to_ask.forEach(question => {
+          html += `<li>${question}</li>`;
+        });
+        html += '</ul>';
+        html += '</div>';
+      }
+
+      // Follow-up actions
+      if (cardData.follow_up_actions && cardData.follow_up_actions.length > 0) {
+        html += '<div class="card-section">';
+        html += '<h3>📋 After Your Appointment</h3>';
+        html += '<ul>';
+        cardData.follow_up_actions.forEach(action => {
+          html += `<li>${action}</li>`;
+        });
+        html += '</ul>';
+        html += '</div>';
+      }
+
+      cardContent.innerHTML = html;
+      cardDisplay.classList.add('active');
     }
 
     function sendTextMessage() {
@@ -460,10 +779,8 @@
           await audioContext.audioWorklet.addModule('/static/audio-processor.js');
           workletNode = new AudioWorkletNode(audioContext, 'ring-buffer-processor');
           workletNode.connect(audioContext.destination);
-          addLog("🎵 AudioWorklet loaded successfully", "voice");
         } catch (e) {
           console.warn("AudioWorklet not available, using fallback:", e);
-          addLog("⚠️ AudioWorklet unavailable, using fallback playback", "voice");
         }
         
         addLog("Audio context initialized", "voice");
@@ -570,7 +887,6 @@
         // Send to AudioWorklet if available, otherwise fallback to direct playback
         if (workletNode) {
           workletNode.port.postMessage({ pcm: float32 });
-          addLog(`🔊 Playing audio via AudioWorklet (${float32.length} samples)`, "voice");
         } else {
           // Fallback: create buffer source for direct playback
           const audioBuffer = audioContext.createBuffer(1, float32.length, audioContext.sampleRate);
@@ -579,7 +895,6 @@
           source.buffer = audioBuffer;
           source.connect(audioContext.destination);
           source.start();
-          addLog(`🔊 Playing audio via BufferSource (${audioBuffer.duration.toFixed(2)}s)`, "voice");
         }
       } catch (e) {
         console.error("Error playing audio:", e);

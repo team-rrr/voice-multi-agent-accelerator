@@ -46,31 +46,47 @@ async def run_orchestration(query: str) -> ChecklistResponse:
     checklist_result = await kernel.invoke(info_function)
     checklist = str(checklist_result)
     
-    # Step 2: Call PatientContextAgent to get patient data
+    # Step 2: Call PatientContextAgent with user query for context-aware response
     context_function = kernel.get_function("CaregiverPlugin", "PatientContextAgent")
-    context_result = await kernel.invoke(context_function)
+    context_arguments = KernelArguments(user_query=query)
+    context_result = await kernel.invoke(context_function, context_arguments)
     context = str(context_result)
     
-    # Step 3: Call ActionAgent to merge information into final response
+    # Step 3: Call ActionAgent to create contextual response based on user query
     action_function = kernel.get_function("CaregiverPlugin", "ActionAgent")
-    arguments = KernelArguments(checklist=checklist, context=context)
+    arguments = KernelArguments(checklist=checklist, context=context, user_query=query)
     result = await kernel.invoke(action_function, arguments)
 
-    # For the demo, we'll manually create the card payload.
-    # A more advanced version would have the ActionAgent return structured JSON.
+    # Create the card payload matching the UI structure
     card_payload = {
         "title": "Cardiology Appointment Checklist",
-        "items": [
+        "appointment_details": {
+            "doctor": "Doctor mentioned in conversation",
+            "reason": "Appointment reason from user input",
+            "timing": "As mentioned by user"
+        },
+        "preparation_items": [
+            "Bring current medications list",
+            "Document chest pain episodes with dates and severity", 
+            "Prepare questions about treatment options",
+            "Bring insurance cards and ID",
+            "List family history of heart conditions",
             "Recent medical records",
-            "Medication list (including supplements)",
-            "Symptom log",
-            "Family history",
-            "Questions for the doctor"
+            "Symptom log"
         ],
-        "context": "Recent diagnoses include hypertension and atrial fibrillation.",
-        "links": [
-            "https://www.ahrq.gov/sites/default/files/wysiwyg/health-literacy/my-medicines-list.pdf",
-            "https://www.ahrq.gov/questions/question-builder/online.html"
+        "questions_to_ask": [
+            "What could be causing my chest pain?",
+            "What tests do you recommend?",
+            "Are there lifestyle changes I should make?",
+            "When should I be concerned about symptoms?",
+            "What are my treatment options?"
+        ],
+        "follow_up_actions": [
+            "Schedule any recommended tests",
+            "Follow medication instructions", 
+            "Monitor symptoms as directed",
+            "Keep symptom diary",
+            "Follow up as scheduled"
         ]
     }
 
