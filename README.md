@@ -1,4 +1,4 @@
-# Voice Multi-Agent Accelerator: Real-Time Voice AI with Azure Voice Live API
+# Voice Multi-Agent Accelerator
 
 *Azure Sample accelerator for Microsoft Hackathon 2025 - Real-time voice interaction system with complete multi-agent orchestration.*
 
