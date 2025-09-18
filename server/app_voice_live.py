@@ -10,7 +10,9 @@ import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
+from pydantic import BaseModel
 from voice_live_handler import VoiceLiveHandler
+from orchestrator import run_orchestration, ChecklistResponse
 
 # Load environment variables
 load_dotenv(dotenv_path='../.env')
@@ -164,6 +166,7 @@ def read_root():
             "voice_websocket": "/ws/voice",
             "text_websocket": "/ws/text", 
             "health": "/health",
+            "api_query": "/api/query",
             "static_files": "/static/"
         },
         "description": "Real-time voice echo bot using Azure Voice Live API"
@@ -180,6 +183,20 @@ def health_check():
         "voice_live_model": os.getenv("VOICE_LIVE_MODEL", "gpt-4o-mini"),
         "acs_connection_configured": bool(os.getenv("ACS_CONNECTION_STRING"))
     }
+
+
+class QueryRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/query", response_model=ChecklistResponse)
+async def http_query(request: QueryRequest):
+    """
+    Provides a text-based debug endpoint for the orchestrator.
+    """
+    logger.info(f"Received API query: {request.text}")
+    response = await run_orchestration(request.text)
+    return response
 
 
 if __name__ == "__main__":
