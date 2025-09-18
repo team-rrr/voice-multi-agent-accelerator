@@ -3,4 +3,6 @@ uvicorn[standard]
 python-dotenv
 websockets
 azure-ai-voicelive
+semantic-kernel
+pydantic
 aiohttp
