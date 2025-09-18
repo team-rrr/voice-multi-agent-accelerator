@@ -25,7 +25,7 @@ A **real-time voice interaction system** featuring:
 
 - **Multi-Agent Orchestration** with Semantic Kernel integration
 - **Healthcare Caregiver Assistant** with specialized agents (InfoAgent, PatientContextAgent, ActionAgent)
-- **Azure Voice Live API** integration for real-time speech processing  
+- **Azure Voice Live API** integration for real-time speech processing
 - **FastAPI WebSocket** backend with professional web interface
 - **Structured Response System** with appointment preparation checklists
 - **Dual Mode Support** - Voice and Text interaction
@@ -36,7 +36,7 @@ A **real-time voice interaction system** featuring:
 **Complete Multi-Agent System Implementation:**
 
 - **InfoAgent**: Gathers patient symptoms and medical history
-- **PatientContextAgent**: Analyzes patient context and appointment relevance  
+- **PatientContextAgent**: Analyzes patient context and appointment relevance
 - **ActionAgent**: Generates personalized appointment preparation checklists
 - **Orchestration**: Sequential agent execution with context passing
 - **Voice Integration**: Full voice-to-orchestration-to-speech pipeline
@@ -79,9 +79,9 @@ Web Client (Professional UI + Card Display)
 
 ```bash
 # 1. Setup environment
-cd server
 cp .env.template .env
 # Edit .env with your Azure credentials
+cd server
 
 # 2. Install dependencies
 python -m venv .venv
@@ -111,7 +111,7 @@ python -m uvicorn app_voice_live:app --host 0.0.0.0 --port 8000 --reload
 **AI Response**: Comprehensive spoken guidance + structured checklist including:
 
 - **Symptom Documentation**: When symptoms started, severity, triggers
-- **Medical History**: Previous conditions, current medications, allergies  
+- **Medical History**: Previous conditions, current medications, allergies
 - **Lifestyle Factors**: Relevant habits, stress levels, recent changes
 - **Questions for Doctor**: Prepared questions specific to your condition
 
@@ -120,7 +120,7 @@ python -m uvicorn app_voice_live:app --host 0.0.0.0 --port 8000 --reload
 ```text
 voice-multi-agent-accelerator/
 ├── server/                    # FastAPI backend
-│   ├── app_voice_live.py     # Main server with WebSocket endpoints  
+│   ├── app_voice_live.py     # Main server with WebSocket endpoints
 │   ├── voice_live_handler.py # Azure Voice Live API handler
 │   ├── orchestrator.py       # Multi-agent orchestration engine
 │   ├── plugins.py           # Semantic Kernel agents (InfoAgent, PatientContextAgent, ActionAgent)
@@ -211,7 +211,7 @@ voice-multi-agent-accelerator/
 1. **Voice Input** → Azure Speech-to-Text transcription
 2. **Transcription** → Triggers `on_final_transcription` callback
 3. **Orchestration** → Sequential agent execution (Info → Context → Action)
-4. **Response Formation** → Combines spoken response + structured card data  
+4. **Response Formation** → Combines spoken response + structured card data
 5. **TTS Synthesis** → Converts orchestrated response to audio
 6. **Audio Streaming** → Real-time playback with visual card display
 
@@ -235,7 +235,7 @@ voice-multi-agent-accelerator/
 def info_agent(self, user_query: str) -> str:
     # Extracts symptoms, medical history, lifestyle factors
 
-@kernel_function(name="PatientContextAgent", description="Analyzes patient context") 
+@kernel_function(name="PatientContextAgent", description="Analyzes patient context")
 def patient_context_agent(self, user_query: str, info_analysis: str) -> str:
     # Determines appointment relevance and preparation needs
 
@@ -275,7 +275,7 @@ class ChecklistResponse(BaseModel):
 Each agent has dedicated system prompts and specialized functions:
 
 - **InfoAgent**: Medical symptom extraction and history gathering
-- **PatientContextAgent**: Appointment relevance analysis and patient needs assessment  
+- **PatientContextAgent**: Appointment relevance analysis and patient needs assessment
 - **ActionAgent**: Personalized preparation checklist generation with specific tasks
 
 ### Conversation Context & Memory
@@ -350,7 +350,7 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 ### Core Foundation - IMPLEMENTED
 
 - Azure Voice Live API integration
-- Real-time audio streaming  
+- Real-time audio streaming
 - Azure deployment infrastructure
 - Security best practices
 
@@ -366,7 +366,7 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 ### Specialized Healthcare Agents - IMPLEMENTED
 
 - **InfoAgent**: Symptom and medical history extraction
-- **PatientContextAgent**: Appointment relevance analysis  
+- **PatientContextAgent**: Appointment relevance analysis
 - **ActionAgent**: Personalized preparation checklist generation
 - **Orchestration Engine**: Coordinates all agents with context awareness
 

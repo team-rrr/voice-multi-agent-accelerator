@@ -7,12 +7,16 @@ import os
 import logging
 import json
 import asyncio
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, Request
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from voice_live_handler import VoiceLiveHandler
 from orchestrator import run_orchestration, ChecklistResponse
+
+from plugins.utils import list_agents, load_agent_prompt, AGENT_PROMPTS_DIR
+import importlib
+import inspect
 
 # Load environment variables
 load_dotenv(dotenv_path='../.env')
@@ -26,6 +30,36 @@ app = FastAPI(title="Voice Multi-Agent Echo Bot", version="0.1.0")
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+# List all agents and their functions (name, description)
+@app.get("/api/agents")
+def get_agents():
+    # List all agent names found in agent_prompts
+    return list_agents()
+
+from fastapi import Response
+# Get the contents of a specific agent prompt file
+@app.get("/api/agent/{name}")
+def get_agent_prompt(name: str):
+    return Response(content=load_agent_prompt(name), media_type="text/plain")
+
+# Save agent markdown
+@app.post("/api/agent/{name}")
+def save_agent_prompt(name: str, body: str = None):
+    # AGENT_PROMPTS_DIR already imported at top
+    path = os.path.join(AGENT_PROMPTS_DIR, f"{name}.md")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(body or "")
+    return {"status": "ok"}
+
+@app.post("/api/agent/{name}")
+async def save_agent_prompt(name: str, request: Request):
+    # AGENT_PROMPTS_DIR already imported at top
+    body = await request.body()
+    path = os.path.join(AGENT_PROMPTS_DIR, f"{name}.txt")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(body.decode("utf-8"))
+    return {"status": "ok"}
 
 @app.websocket("/ws/voice")
 async def websocket_voice_endpoint(websocket: WebSocket):
@@ -51,45 +85,45 @@ async def websocket_voice_endpoint(websocket: WebSocket):
 
     # Initialize Voice Live handler with orchestration callback
     handler = VoiceLiveHandler(config, on_final_transcription=run_orchestration)
-    
+
     try:
         # Set up client WebSocket connection
         await handler.init_incoming_websocket(websocket, is_raw_audio=True)
-        
+
         # Connect to Voice Live API
         await handler.connect()
-        
+
         # Send ready message to client
         await websocket.send_text(json.dumps({
-            "type": "ready", 
+            "type": "ready",
             "text": "Voice Multi-Agent Assistant is ready! You can start speaking to get personalized appointment preparation help."
         }))
-        
+
         # Message handling loop
         while True:
             try:
                 # Receive message from client
                 message = await websocket.receive()
-                
+
                 if message["type"] == "websocket.receive":
                     # Handle different message types
                     if "text" in message:
                         # Handle ping messages for connection health checks
                         data = json.loads(message["text"])
-                        
+
                         if data.get("type") == "ping":
                             # Respond to ping
                             await websocket.send_text(json.dumps({
                                 "type": "pong",
                                 "text": "Voice Multi-Agent Bot is alive"
                             }))
-                            
+
                     elif "bytes" in message:
                         # Binary audio data
                         audio_bytes = message["bytes"]
                         logger.debug(f"Received {len(audio_bytes)} bytes of audio data")
                         await handler.web_to_voicelive(audio_bytes)
-                        
+
             except Exception as e:
                 logger.error(f"Error processing message: {e}")
                 break
@@ -120,7 +154,7 @@ async def websocket_text_endpoint(websocket: WebSocket):
             # Receive message from client
             data = await websocket.receive_text()
             logger.info(f"Received text message: {data}")
-            
+
             try:
                 # Try to parse as JSON
                 message = json.loads(data)
@@ -135,7 +169,7 @@ async def websocket_text_endpoint(websocket: WebSocket):
             except json.JSONDecodeError:
                 # If not JSON, just echo the raw text
                 response = {
-                    "type": "echo", 
+                    "type": "echo",
                     "text": f"Echo: {data}"
                 }
                 await websocket.send_text(json.dumps(response))
@@ -153,12 +187,12 @@ async def websocket_text_endpoint(websocket: WebSocket):
 def read_root():
     """Root endpoint with API information."""
     return {
-        "message": "Voice Multi-Agent Echo Bot", 
+        "message": "Voice Multi-Agent Echo Bot",
         "status": "running",
         "version": "0.1.0",
         "endpoints": {
             "voice_websocket": "/ws/voice",
-            "text_websocket": "/ws/text", 
+            "text_websocket": "/ws/text",
             "health": "/health",
             "api_query": "/api/query",
             "static_files": "/static/"
