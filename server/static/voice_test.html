@@ -207,6 +207,7 @@
       padding: 20px;
       margin-bottom: 20px;
       display: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
     }
 
     .card-display.active {
@@ -254,6 +255,7 @@
       overflow-y: auto;
       font-family: 'Consolas', 'Monaco', monospace;
       font-size: 0.9rem;
+      scroll-behavior: smooth;
     }
 
     .log-entry {
@@ -262,6 +264,18 @@
       border-radius: 6px;
       border-left: 4px solid;
       line-height: 1.5;
+      animation: fadeInUp 0.2s ease-out;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .log-entry p {
@@ -419,6 +433,9 @@
     let isRecording = false;
     let workletNode;
     let readyMessageShown = false;
+    let isProcessingResponse = false;
+    let responseBuffer = null;
+    let lastTranscriptTime = 0;
 
     function setMode(mode) {
       currentMode = mode;
@@ -462,8 +479,22 @@
       
       entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${formattedContent}`;
       
-      logs.appendChild(entry);
-      logs.scrollTop = logs.scrollHeight;
+      // Use requestAnimationFrame to batch DOM updates and reduce flickering
+      requestAnimationFrame(() => {
+        logs.appendChild(entry);
+        
+        // Limit log entries to prevent performance issues
+        const entries = logs.querySelectorAll('.log-entry');
+        if (entries.length > 50) {
+          entries[0].remove();
+        }
+        
+        // Smooth scroll to bottom without jarring jumps
+        logs.scrollTo({
+          top: logs.scrollHeight,
+          behavior: 'smooth'
+        });
+      });
     }
 
     function formatConversationText(text) {
@@ -647,22 +678,29 @@
           }
           break;
         case 'orchestration_response':
-          // Handle multi-agent response
-          if (data.spoken_response) {
-            // Clean and format the AI response properly
-            const cleanResponse = data.spoken_response.trim();
-            if (cleanResponse) {
-              addLog(`🤖 AI Response: ${cleanResponse}`, "voice");
+          // Handle multi-agent response - buffer it to prevent flickering
+          isProcessingResponse = true;
+          responseBuffer = data;
+          
+          // Delay processing slightly to avoid flickering with real-time transcripts
+          setTimeout(() => {
+            if (responseBuffer && responseBuffer.spoken_response) {
+              const cleanResponse = responseBuffer.spoken_response.trim();
+              if (cleanResponse) {
+                addLog(`🤖 AI Response: ${cleanResponse}`, "voice");
+              }
             }
-          }
-          if (data.card_data) {
-            displayCard(data.card_data);
-            addLog(`📋 Generated appointment preparation checklist`, "received");
-          }
+            if (responseBuffer && responseBuffer.card_data) {
+              displayCard(responseBuffer.card_data);
+              addLog(`📋 Generated appointment preparation checklist`, "received");
+            }
+            isProcessingResponse = false;
+            responseBuffer = null;
+          }, 100); // Small delay to batch updates and reduce flickering
           break;
         case 'card':
           // Handle card data from voice orchestration
-          if (data.payload) {
+          if (data.payload && !isProcessingResponse) {
             displayCard(data.payload);
             // Only log once when card is first displayed
             if (!document.getElementById('cardDisplay').classList.contains('active')) {
@@ -674,14 +712,22 @@
           addLog(`Echo: ${data.text.replace('Echo: ', '')}`, "received");
           break;
         case 'Transcription':
-          addLog(`🤖 AI Response: ${data.text}`, "voice");
+          // Debounce transcript messages to reduce flickering during speech synthesis
+          const currentTime = Date.now();
+          if (!isProcessingResponse && (currentTime - lastTranscriptTime) > 500) {
+            addLog(`🤖 AI Response: ${data.text}`, "voice");
+            lastTranscriptTime = currentTime;
+          }
           break;
         case 'error':
           addLog(`❌ Error: ${data.text}`, "error");
           break;
         default:
-          const text = data.text || JSON.stringify(data);
-          addLog(`📨 ${type}: ${text}`, "received");
+          // Reduce frequency of unknown message logging to prevent spam
+          if (!isProcessingResponse) {
+            const text = data.text || JSON.stringify(data);
+            addLog(`📨 ${type}: ${text}`, "received");
+          }
       }
     }
 
@@ -689,6 +735,14 @@
       const cardDisplay = document.getElementById('cardDisplay');
       const cardTitle = document.getElementById('cardTitle');
       const cardContent = document.getElementById('cardContent');
+
+      // Prevent duplicate card displays
+      if (cardDisplay.classList.contains('active') && cardDisplay.dataset.cardId === JSON.stringify(cardData)) {
+        return;
+      }
+
+      // Set unique identifier to prevent duplicates
+      cardDisplay.dataset.cardId = JSON.stringify(cardData);
 
       // Set title
       cardTitle.textContent = cardData.title || 'Appointment Preparation Guide';
@@ -750,8 +804,21 @@
         html += '</div>';
       }
 
-      cardContent.innerHTML = html;
-      cardDisplay.classList.add('active');
+      // Use requestAnimationFrame to prevent visual flickering
+      requestAnimationFrame(() => {
+        cardContent.innerHTML = html;
+        if (!cardDisplay.classList.contains('active')) {
+          cardDisplay.classList.add('active');
+          // Smooth fade-in effect
+          cardDisplay.style.opacity = '0';
+          cardDisplay.style.transform = 'translateY(10px)';
+          setTimeout(() => {
+            cardDisplay.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            cardDisplay.style.opacity = '1';
+            cardDisplay.style.transform = 'translateY(0)';
+          }, 10);
+        }
+      });
     }
 
     function sendTextMessage() {

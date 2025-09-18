@@ -25,13 +25,16 @@ class CaregiverPlugin:
     
     def _get_cardiology_specific_checklist(self) -> str:
         """Cardiology appointment specific checklist."""
-        return """For your cardiology appointment, bring:
+        return """I'll help you prepare for your cardiology appointment. Here's what to bring:
 - Recent EKG results and cardiac test reports
 - Blood pressure log (if you monitor at home)
 - Complete list of current heart medications
 - Family history of cardiovascular conditions
 - Any symptoms you've experienced (chest pain, shortness of breath, palpitations)
 - Questions about your heart condition or treatment plan
+
+To make this more specific to your situation, can you tell me when your chest pain typically occurs?
+
 Helpful Links:
 - Heart Health Tracker: https://www.heart.org/en/health-topics/consumer-healthcare/what-is-cardiovascular-disease/heart-attack-symptoms-in-women
 - Medication Form: https://www.ahrq.gov/sites/default/files/wysiwyg/health-literacy/my-medicines-list.pdf"""
