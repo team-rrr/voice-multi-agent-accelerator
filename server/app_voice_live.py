@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from voice_live_handler import VoiceLiveHandler
 from orchestrator import run_orchestration, ChecklistResponse
 
-from plugins.utils import list_agents, load_agent_prompt, AGENT_PROMPTS_DIR
+from plugins.utils import list_agent_prompts, list_tool_prompts, load_agent_prompt, load_tool_prompt, AGENT_PROMPTS_DIR
 import importlib
 import inspect
 
@@ -31,17 +31,28 @@ app = FastAPI(title="Voice Multi-Agent Echo Bot", version="0.1.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# List all agents and their functions (name, description)
+
+# List all agent prompt files
 @app.get("/api/agents")
 def get_agents():
-    # List all agent names found in agent_prompts
-    return list_agents()
+    return list_agent_prompts()
+
+# List all tool prompt files (functions grouped by agent)
+@app.get("/api/tools")
+def get_tools():
+    return list_tool_prompts()
 
 from fastapi import Response
+
 # Get the contents of a specific agent prompt file
 @app.get("/api/agent/{name}")
 def get_agent_prompt(name: str):
     return Response(content=load_agent_prompt(name), media_type="text/plain")
+
+# Get the contents of a specific tool prompt file
+@app.get("/api/tool/{agent}/{function}")
+def get_tool_prompt(agent: str, function: str):
+    return Response(content=load_tool_prompt(agent, function), media_type="text/plain")
 
 # Save agent markdown
 @app.post("/api/agent/{name}")

@@ -3,270 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <title>Chat</title>
-  <link rel="stylesheet" href="style.css">
-  <style>
-    :root {
-      --primary: #2563eb;
-      --secondary: #1e293b;
-      --accent: #f59e42;
-      --background: #fff;
-      --surface: #f8fafc;
-      --border: #e2e8f0;
-    }
-    .voice-assistant-ui {
-      max-width: 900px;
-      margin: 32px auto;
-      background: var(--background);
-      padding: 40px 36px 36px 36px;
-      border-radius: 16px;
-      box-shadow: 0 4px 24px #0002;
-    }
-    .subtitle {
-      text-align: center;
-      color: var(--primary);
-      font-size: 1.25rem;
-      margin-bottom: 28px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-    }
-    .mode-controls {
-      justify-content: center;
-      margin-bottom: 24px;
-      display: flex;
-      gap: 12px;
-    }
-    .mode-btn {
-      padding: 10px 24px;
-      border-radius: 24px;
-      border: 2px solid var(--primary);
-      background: var(--background);
-      color: var(--primary);
-      font-weight: 600;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .mode-btn.active {
-      background: var(--primary);
-      color: var(--background);
-      box-shadow: 0 2px 8px var(--primary)22;
-    }
-    .mode-btn:hover {
-      background: var(--secondary);
-      color: var(--background);
-      border-color: var(--secondary);
-    }
-    .controls {
-      justify-content: center;
-      margin-bottom: 24px;
-      display: flex;
-      gap: 12px;
-    }
-    .controls button {
-      padding: 12px 28px;
-      border-radius: 10px;
-      border: 2px solid var(--primary);
-      font-size: 1.05rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s, border 0.2s;
-      background: var(--primary);
-      color: var(--background);
-      margin: 0 4px;
-      box-sizing: border-box;
-      min-width: 120px;
-      text-align: center;
-      outline: none;
-      display: inline-block;
-    }
-    .controls button:hover {
-      background: var(--secondary);
-      color: var(--background);
-      border-color: var(--secondary);
-    }
-    .controls button:active {
-      background: var(--accent);
-      color: var(--secondary);
-      border-color: var(--accent);
-    }
-    .controls button:disabled {
-      background: var(--border);
-      color: #9ca3af;
-      border-color: var(--border);
-      cursor: not-allowed;
-    }
-    .controls input[type="text"], .controls input[type="search"], .controls input[type="email"], .controls input[type="password"], .controls textarea {
-      padding: 12px 16px;
-      border-radius: 10px;
-      border: 2px solid var(--border);
-      font-size: 1.05rem;
-      margin: 0 4px;
-      box-sizing: border-box;
-      min-width: 220px;
-      outline: none;
-      background: var(--surface);
-      color: var(--secondary);
-      transition: border 0.2s, box-shadow 0.2s;
-      display: inline-block;
-      vertical-align: middle;
-    }
-    .controls input[type="text"]:focus, .controls input[type="search"]:focus, .controls input[type="email"]:focus, .controls input[type="password"]:focus, .controls textarea:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px var(--primary)33;
-    }
-    .controls {
-      align-items: center;
-    }
-    #connectBtn {
-      background: var(--primary);
-      color: var(--background);
-    }
-    #connectBtn:hover {
-      background: var(--secondary);
-    }
-    #disconnectBtn {
-      background: var(--secondary);
-      color: var(--background);
-    }
-    #disconnectBtn:disabled {
-      background: var(--border);
-      color: #9ca3af;
-      cursor: not-allowed;
-    }
-    #startVoiceBtn {
-      background: var(--primary);
-      color: var(--background);
-    }
-    #startVoiceBtn:hover {
-      background: var(--accent);
-      color: var(--secondary);
-    }
-    #stopVoiceBtn {
-      background: var(--accent);
-      color: var(--secondary);
-    }
-    #stopVoiceBtn:hover {
-      background: var(--primary);
-      color: var(--background);
-    }
-    /* Send input and button styling */
-    .send-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 18px;
-      margin-bottom: 12px;
-    }
-    .send-row input[type="text"] {
-      padding: 12px 16px;
-      border-radius: 10px;
-      border: 2px solid var(--border);
-      font-size: 1.05rem;
-      min-width: 260px;
-      outline: none;
-      background: var(--surface);
-      color: var(--secondary);
-      transition: border 0.2s, box-shadow 0.2s;
-      margin-right: 8px;
-      box-sizing: border-box;
-    }
-    .send-row input[type="text"]:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px var(--primary)33;
-    }
-    .send-row button {
-      padding: 12px 28px;
-      border-radius: 10px;
-      border: 2px solid var(--primary);
-      font-size: 1.05rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: var(--primary);
-      color: var(--background);
-      transition: background 0.2s, color 0.2s, border 0.2s;
-      outline: none;
-      min-width: 120px;
-      text-align: center;
-      box-sizing: border-box;
-      margin-left: 8px;
-      display: inline-block;
-    }
-    .send-row button:hover {
-      background: var(--accent);
-      color: var(--secondary);
-      border-color: var(--accent);
-    }
-    .send-row button:active {
-      background: var(--secondary);
-      color: var(--background);
-      border-color: var(--secondary);
-    }
-    .send-row button:disabled {
-      background: var(--border);
-      color: #9ca3af;
-      border-color: var(--border);
-      cursor: not-allowed;
-    }
-    .card-display {
-      margin-bottom: 24px;
-    }
-    .logs {
-      margin-top: 24px;
-      background: var(--surface);
-      border-radius: 8px;
-      box-shadow: 0 2px 8px #0001;
-      padding: 18px;
-      max-height: 320px;
-      overflow-y: auto;
-    }
-    .log-entry {
-      margin-bottom: 12px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      border-left: 4px solid var(--primary);
-      background: var(--surface);
-    }
-    .log-entry strong {
-      color: var(--primary);
-    }
-    .audio-indicator {
-      margin-bottom: 18px;
-      color: var(--accent);
-      font-weight: 600;
-    }
-    .status {
-      margin-bottom: 18px;
-      font-weight: 600;
-      font-size: 1.05rem;
-    }
-    .card-title {
-      color: var(--secondary);
-      font-size: 1.3rem;
-      font-weight: bold;
-      margin-bottom: 12px;
-    }
-    .card-section {
-      margin-bottom: 12px;
-      padding: 10px;
-      background: var(--surface);
-      border-radius: 8px;
-      border-left: 4px solid var(--primary);
-    }
-    @media (max-width: 600px) {
-      .voice-assistant-ui {
-        padding: 16px 4px;
-      }
-      .controls, .mode-controls {
-        flex-direction: column;
-        gap: 8px;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
   <header>
-    <h1>Voice Multi-Agent Assistant</h1>
+    <div style="display: flex; align-items: center; justify-content: flex-start; gap: 24px; max-width: 900px; margin: 0 12px;">
+      <!-- <div style="width:32px;height:32px;border-radius:50%;background:#fff;display:inline-block;"></div> -->
+      <span style="font-size:2rem;font-weight:700;color:var(--background);letter-spacing:0.5px;">Voice Multi-Agent Assistant</span>
+    </div>
   </header>
   <div class="layout">
     <nav class="sidebar">
@@ -276,7 +20,7 @@
         <li><a href="manage.html">Manage</a></li>
       </ul>
     </nav>
-    <main style="padding:0;">
+    <main>
       <div class="voice-assistant-ui" style="width:100%;margin:0;background:#fff;padding:32px 0 32px 0;border-radius:0;box-shadow:none;">
         <div class="subtitle">AI-powered appointment preparation with personalized guidance</div>
         <div class="mode-controls">
@@ -314,8 +58,6 @@
       </div>
     </main>
   </div>
-  <footer>
-    <p>&copy; 2025 Voice Multi-Agent Accelerator</p>
   <footer>
     <p>&copy; 2025 Voice Multi-Agent Accelerator</p>
   </footer>
@@ -573,7 +315,9 @@
             data.card_data.agents.forEach(agent => {
               const agentName = agent.name || agent.agent || 'UnknownAgent';
               const funcName = agent.function || agent.func || 'UnknownFunction';
-              console.log(`[Orchestrator] Agent: ${agentName}, Function: ${funcName}`);
+              const logMsg = `[Orchestrator] Agent: ${agentName}, Function: ${funcName}`;
+              console.log(logMsg);
+              // addLog(logMsg, 'info');
             });
           }
         }
