@@ -57,6 +57,9 @@ class VoiceLiveHandler:
         self.incoming_websocket = None
         self.is_raw_audio = True
         self.on_final_transcription = on_final_transcription
+        self.is_response_active = False
+        self.pending_responses = asyncio.Queue()
+        self.pending_card_data = None
         
         # Debug log to confirm orchestration callback is set
         if self.on_final_transcription:
@@ -86,6 +89,7 @@ class VoiceLiveHandler:
 
             # Send initial session configuration
             await self._send_json(session_config())
+            self.is_response_active = True
             await self._send_json({"type": "response.create"})
 
             # Start background tasks
@@ -154,6 +158,11 @@ class VoiceLiveHandler:
                         transcript = event.get("transcript")
                         logger.info(f"User said: {transcript}")
                         
+                        # Skip processing if there's already an active response
+                        if self.is_response_active:
+                            logger.info("Skipping transcription processing - response already active")
+                            return
+                        
                         if self.on_final_transcription:
                             # A callback is defined, so run the full orchestration
                             logger.info("Final transcription received. Calling orchestrator...")
@@ -164,22 +173,23 @@ class VoiceLiveHandler:
                                     logger.info("Skipping orchestration for very short input")
                                     return
                                 
-                                # This calls the run_orchestration function from Day 3
+                                # This calls the run_orchestration function
                                 response = await self.on_final_transcription(transcript)
                                 logger.info("Orchestration response received, sending to Voice Live...")
 
-                                # Send the spoken text part to be synthesized by Voice Live
+                                # Send the spoken text part FIRST to be synthesized by Voice Live
                                 await self.text_to_voicelive(response.spoken)
-
-                                # Send the structured card data only for checklist-related queries
-                                if any(keyword in transcript.lower() for keyword in ["appointment", "checklist", "prepare", "bring", "doctor"]):
-                                    await self.send_message({
-                                        "type": "card",
-                                        "payload": response.card
-                                    })
-                                    logger.info("Multi-agent response with card sent successfully")
+                                
+                                # Schedule card to be sent when response completes (if card exists)
+                                if response.card:
+                                    # Store card data to send after response completion
+                                    self.pending_card_data = response.card
+                                    logger.info("Multi-agent response with card scheduled for post-speech delivery")
+                                    
+                                    # Also set a fallback timer in case response.done isn't received
+                                    asyncio.create_task(self._fallback_card_delivery(response.card, 3.0))
                                 else:
-                                    logger.info("Multi-agent response sent (no card - not checklist-related)")
+                                    logger.info("Multi-agent response sent (no card)")
                                 
                             except Exception as e:
                                 logger.error(f"Orchestration failed: {e}")
@@ -202,6 +212,18 @@ class VoiceLiveHandler:
                     case "response.done":
                         response = event.get("response", {})
                         logger.info(f"Response completed: {response.get('id')}")
+                        self.is_response_active = False
+                        
+                        # Trigger any pending card sends now that speech is complete
+                        if hasattr(self, 'pending_card_data') and self.pending_card_data:
+                            card_data = self.pending_card_data
+                            self.pending_card_data = None
+                            # Send card immediately after response completion
+                            asyncio.create_task(self._send_card_immediately(card_data))
+                        
+                        # Process any pending responses
+                        await self._process_next_response()
+                        
                         if response.get("status_details"):
                             logger.debug(
                                 f"Status details: {json.dumps(response['status_details'], indent=2)}"
@@ -277,8 +299,33 @@ class VoiceLiveHandler:
             await self.audio_to_voicelive(audio_b64)
 
     async def text_to_voicelive(self, text: str):
-        """Sends text message to Voice Live API for processing."""
+        """Sends text message to Voice Live API for processing with response conflict prevention."""
         try:
+            # Always queue responses to prevent conflicts
+            logger.info(f"Queueing text response for sequential processing: {text[:50]}...")
+            await self.pending_responses.put(text)
+            
+            # If no response is currently active, process immediately
+            if not self.is_response_active:
+                await self._process_next_response()
+            
+        except Exception:
+            logger.exception("Error sending text to Voice Live API")
+            
+    async def _process_next_response(self):
+        """Process the next queued response if no response is currently active."""
+        try:
+            if not self.is_response_active and not self.pending_responses.empty():
+                text = await self.pending_responses.get()
+                await self._send_text_immediately(text)
+        except Exception:
+            logger.exception("Error processing next response")
+            
+    async def _send_text_immediately(self, text: str):
+        """Immediately sends text to Voice Live API."""
+        try:
+            self.is_response_active = True
+            
             # Create a conversation item with user text
             user_message = {
                 "type": "conversation.item.create",
@@ -298,7 +345,64 @@ class VoiceLiveHandler:
             await self._send_json({"type": "response.create"})
             logger.info(f"Sent text to Voice Live: {text}")
         except Exception:
-            logger.exception("Error sending text to Voice Live API")
+            self.is_response_active = False
+            logger.exception("Error sending text immediately to Voice Live API")
+
+    async def _send_card_immediately(self, card_payload: dict):
+        """Send card data immediately after speech response completion."""
+        try:
+            # Only send card if we still have a websocket connection
+            if self.incoming_websocket:
+                await self.send_message({
+                    "type": "card",
+                    "payload": card_payload
+                })
+                logger.info("Card sent immediately after speech response completion")
+            else:
+                logger.warning("Cannot send card - websocket connection lost")
+            
+        except Exception as e:
+            logger.error(f"Error sending immediate card: {e}")
+
+    async def _fallback_card_delivery(self, card_payload: dict, delay_seconds: float = 3.0):
+        """Fallback card delivery in case response.done event isn't received."""
+        try:
+            # Wait for a reasonable time for normal completion
+            await asyncio.sleep(delay_seconds)
+            
+            # If card is still pending, send it now
+            if hasattr(self, 'pending_card_data') and self.pending_card_data is not None:
+                if self.incoming_websocket:
+                    await self.send_message({
+                        "type": "card",
+                        "payload": card_payload
+                    })
+                    self.pending_card_data = None
+                    logger.info(f"Card sent via fallback delivery after {delay_seconds}s")
+                else:
+                    logger.warning("Cannot send fallback card - websocket connection lost")
+            
+        except Exception as e:
+            logger.error(f"Error in fallback card delivery: {e}")
+
+    async def _send_card_with_delay(self, card_payload: dict, query: str, delay_seconds: float = 1.5):
+        """Send card data after a delay to allow speech synthesis to start first."""
+        try:
+            # Wait for speech to begin before showing card
+            await asyncio.sleep(delay_seconds)
+            
+            # Only send card if we still have a websocket connection
+            if self.incoming_websocket:
+                await self.send_message({
+                    "type": "card",
+                    "payload": card_payload
+                })
+                logger.info(f"Card sent after {delay_seconds}s delay for better UX timing")
+            else:
+                logger.warning("Cannot send card - websocket connection lost")
+            
+        except Exception as e:
+            logger.error(f"Error sending delayed card: {e}")
 
     async def close(self):
         """Clean up resources."""
