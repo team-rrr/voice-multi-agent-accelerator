@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --secondary: #1e293b;
+      --accent: #f59e42;
+      --background: #fff;
+      --surface: #f8fafc;
+      --border: #e2e8f0;
+    }
+    .voice-assistant-ui {
+      max-width: 900px;
+      margin: 32px auto;
+      background: var(--background);
+      padding: 40px 36px 36px 36px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px #0002;
+    }
+    .subtitle {
+      text-align: center;
+      color: var(--primary);
+      font-size: 1.25rem;
+      margin-bottom: 28px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .mode-controls {
+      justify-content: center;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 12px;
+    }
+    .mode-btn {
+      padding: 10px 24px;
+      border-radius: 24px;
+      border: 2px solid var(--primary);
+      background: var(--background);
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn.active {
+      background: var(--primary);
+      color: var(--background);
+      box-shadow: 0 2px 8px var(--primary)22;
+    }
+    .mode-btn:hover {
+      background: var(--secondary);
+      color: var(--background);
+      border-color: var(--secondary);
+    }
+    .controls {
+      justify-content: center;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 12px;
+    }
+    .controls button {
+      padding: 12px 28px;
+      border-radius: 10px;
+      border: 2px solid var(--primary);
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border 0.2s;
+      background: var(--primary);
+      color: var(--background);
+      margin: 0 4px;
+      box-sizing: border-box;
+      min-width: 120px;
+      text-align: center;
+      outline: none;
+      display: inline-block;
+    }
+    .controls button:hover {
+      background: var(--secondary);
+      color: var(--background);
+      border-color: var(--secondary);
+    }
+    .controls button:active {
+      background: var(--accent);
+      color: var(--secondary);
+      border-color: var(--accent);
+    }
+    .controls button:disabled {
+      background: var(--border);
+      color: #9ca3af;
+      border-color: var(--border);
+      cursor: not-allowed;
+    }
+    .controls input[type="text"], .controls input[type="search"], .controls input[type="email"], .controls input[type="password"], .controls textarea {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      font-size: 1.05rem;
+      margin: 0 4px;
+      box-sizing: border-box;
+      min-width: 220px;
+      outline: none;
+      background: var(--surface);
+      color: var(--secondary);
+      transition: border 0.2s, box-shadow 0.2s;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .controls input[type="text"]:focus, .controls input[type="search"]:focus, .controls input[type="email"]:focus, .controls input[type="password"]:focus, .controls textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary)33;
+    }
+    .controls {
+      align-items: center;
+    }
+    #connectBtn {
+      background: var(--primary);
+      color: var(--background);
+    }
+    #connectBtn:hover {
+      background: var(--secondary);
+    }
+    #disconnectBtn {
+      background: var(--secondary);
+      color: var(--background);
+    }
+    #disconnectBtn:disabled {
+      background: var(--border);
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
+    #startVoiceBtn {
+      background: var(--primary);
+      color: var(--background);
+    }
+    #startVoiceBtn:hover {
+      background: var(--accent);
+      color: var(--secondary);
+    }
+    #stopVoiceBtn {
+      background: var(--accent);
+      color: var(--secondary);
+    }
+    #stopVoiceBtn:hover {
+      background: var(--primary);
+      color: var(--background);
+    }
+    /* Send input and button styling */
+    .send-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 18px;
+      margin-bottom: 12px;
+    }
+    .send-row input[type="text"] {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      font-size: 1.05rem;
+      min-width: 260px;
+      outline: none;
+      background: var(--surface);
+      color: var(--secondary);
+      transition: border 0.2s, box-shadow 0.2s;
+      margin-right: 8px;
+      box-sizing: border-box;
+    }
+    .send-row input[type="text"]:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary)33;
+    }
+    .send-row button {
+      padding: 12px 28px;
+      border-radius: 10px;
+      border: 2px solid var(--primary);
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--primary);
+      color: var(--background);
+      transition: background 0.2s, color 0.2s, border 0.2s;
+      outline: none;
+      min-width: 120px;
+      text-align: center;
+      box-sizing: border-box;
+      margin-left: 8px;
+      display: inline-block;
+    }
+    .send-row button:hover {
+      background: var(--accent);
+      color: var(--secondary);
+      border-color: var(--accent);
+    }
+    .send-row button:active {
+      background: var(--secondary);
+      color: var(--background);
+      border-color: var(--secondary);
+    }
+    .send-row button:disabled {
+      background: var(--border);
+      color: #9ca3af;
+      border-color: var(--border);
+      cursor: not-allowed;
+    }
+    .card-display {
+      margin-bottom: 24px;
+    }
+    .logs {
+      margin-top: 24px;
+      background: var(--surface);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px #0001;
+      padding: 18px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .log-entry {
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+      background: var(--surface);
+    }
+    .log-entry strong {
+      color: var(--primary);
+    }
+    .audio-indicator {
+      margin-bottom: 18px;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .status {
+      margin-bottom: 18px;
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+    .card-title {
+      color: var(--secondary);
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+    .card-section {
+      margin-bottom: 12px;
+      padding: 10px;
+      background: var(--surface);
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+    }
+    @media (max-width: 600px) {
+      .voice-assistant-ui {
+        padding: 16px 4px;
+      }
+      .controls, .mode-controls {
+        flex-direction: column;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Voice Multi-Agent Assistant</h1>
+  </header>
+  <div class="layout">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="chat.html" class="active">Chat</a></li>
+        <li><a href="manage.html">Manage</a></li>
+      </ul>
+    </nav>
+    <main style="padding:0;">
+      <div class="voice-assistant-ui" style="width:100%;margin:0;background:#fff;padding:32px 0 32px 0;border-radius:0;box-shadow:none;">
+        <div class="subtitle">AI-powered appointment preparation with personalized guidance</div>
+        <div class="mode-controls">
+          <button class="mode-btn active" onclick="setMode('voice')" id="voiceModeBtn">Voice Mode</button>
+          <button class="mode-btn" onclick="setMode('text')" id="textModeBtn">Text Mode</button>
+        </div>
+        <div class="controls">
+          <button id="connectBtn" onclick="connectWebSocket()">Connect</button>
+          <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled>Disconnect</button>
+          <button id="startVoiceBtn" onclick="startVoice()" disabled class="voice-only">Start Speaking</button>
+          <button id="stopVoiceBtn" onclick="stopVoice()" disabled class="voice-only">Stop Speaking</button>
+        </div>
+  <div class="status disconnected" id="status">Disconnected - Click "Connect to AI Assistant" to start</div>
+  <div id="audioIndicator" class="audio-indicator" style="display:none;">🔊 Processing voice...</div>
+        <div class="logs" id="logs">
+          <div class="log-entry">
+            <strong>Welcome!</strong> This is the Voice Multi-Agent Assistant.
+            <br>• Voice Mode: Speak about your medical appointments and get personalized preparation guidance
+            <br>• Text Mode: Type your appointment details for structured responses
+            <br><br><strong>Try saying:</strong> "I have an appointment with Dr. Smith next week for chest pain"
+          </div>
+          <div class="log-entry" id="modeLog" style="font-size:0.98rem;color:var(--secondary);">
+            2:21:41 PM:<br>Switched to VOICE mode
+          </div>
+        </div>
+        <div class="send-row" id="textInputArea">
+          <input type="text" id="messageInput" placeholder="Type your message here..." />
+          <button id="sendBtn" onclick="sendTextMessage()">Send</button>
+        </div>
+        <!-- Card display container for appointment preparation guide -->
+        <div id="cardDisplay" style="display:none;">
+          <div class="card-title" id="cardTitle"></div>
+          <div id="cardContent"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer>
+    <p>&copy; 2025 Voice Multi-Agent Accelerator</p>
+  <footer>
+    <p>&copy; 2025 Voice Multi-Agent Accelerator</p>
+  </footer>
+  <!-- Move scripts to end of body to ensure all functions are defined before button onclicks -->
+</body>
+<script>
+  let mediaStream;
+  let audioContext;
+  let source;
+  let processor;
+  let isRecording = false;
+  let workletNode;
+  let readyMessageShown = false;
+
+  function setMode(mode) {
+    currentMode = mode;
+
+    // Update mode buttons
+    document.getElementById('voiceModeBtn').classList.toggle('active', mode === 'voice');
+    document.getElementById('textModeBtn').classList.toggle('active', mode === 'text');
+
+    // Show/hide voice-specific buttons
+    document.getElementById('startVoiceBtn').classList.toggle('active', mode === 'voice');
+    document.getElementById('stopVoiceBtn').classList.toggle('active', mode === 'voice');
+
+    // Show/hide text input area
+    document.getElementById('textInputArea').classList.toggle('active', mode === 'text');
+
+    addLog(`Switched to ${mode.toUpperCase()} mode`, 'info');
+  }
+
+  function addLog(message, type = 'info') {
+    const logs = document.getElementById('logs');
+    const entry = document.createElement('div');
+    entry.className = `log-entry log-${type}`;
+
+    // Extract the actual content after emoji/prefix for AI responses
+    let displayMessage = message;
+    let actualContent = message;
+
+    // For AI responses, separate the emoji/prefix from the content
+    if (message.includes('🤖 AI Response: ')) {
+      const parts = message.split('🤖 AI Response: ');
+      if (parts.length > 1) {
+        displayMessage = '🤖 AI Response: ';
+        actualContent = parts[1];
+      }
+    }
+
+    // Format only the actual content, not the emoji/prefix
+    const formattedContent = actualContent === message ?
+      formatConversationText(message) :
+      displayMessage + formatConversationText(actualContent);
+
+    entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${formattedContent}`;
+
+    logs.appendChild(entry);
+    logs.scrollTop = logs.scrollHeight;
+  }
+
+  function formatConversationText(text) {
+    if (!text || typeof text !== 'string') return text;
+
+    // Clean up the text first - remove excessive whitespace and normalize
+    let cleaned = text
+      .replace(/\r\n/g, '\n')  // Normalize line endings
+      .replace(/\n\s*\n\s*\n/g, '\n\n')  // Remove triple+ newlines
+      .trim();
+
+    // Handle bold text formatting (**text** to <strong>text</strong>)
+    cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // Split into sections for better processing
+    let sections = cleaned.split(/\n\s*\n/);
+    let formattedSections = [];
+
+    for (let section of sections) {
+      if (!section.trim()) continue; // Skip empty sections
+
+      // Check if this section contains bullet points
+      if (section.includes('\n• ') || section.includes('\n* ') || section.includes('\n- ')) {
+        let lines = section.split('\n');
+        let beforeList = [];
+        let listItems = [];
+        let inList = false;
+
+        for (let line of lines) {
+          line = line.trim();
+          if (!line) continue; // Skip empty lines
+
+          if (line.startsWith('• ') || line.startsWith('* ') || line.startsWith('- ')) {
+            inList = true;
+            // Remove the bullet and add as list item
+            let itemText = line.replace(/^[•\*\-]\s*/, '');
+            listItems.push(`<li>${itemText}</li>`);
+          } else if (!inList) {
+            beforeList.push(line);
+          } else {
+            // Text after bullets - could be continuation or new paragraph
+            if (line.startsWith('• ') || line.startsWith('* ') || line.startsWith('- ')) {
+              let itemText = line.replace(/^[•\*\-]\s*/, '');
+              listItems.push(`<li>${itemText}</li>`);
+            } else {
+              // This might be continuation of previous item or new paragraph
+              // For now, treat as new paragraph after list
+              if (listItems.length > 0) {
+                formattedSections.push(
+                  (beforeList.length > 0 ? `<p>${beforeList.join(' ')}</p>` : '') +
+                  `<ul>${listItems.join('')}</ul>`
+                );
+                beforeList = [line];
+                listItems = [];
+                inList = false;
+              }
+            }
+          }
+        }
+
+        // Add remaining content
+        let result = '';
+        if (beforeList.length > 0) {
+          result += `<p>${beforeList.join(' ')}</p>`;
+        }
+        if (listItems.length > 0) {
+          result += `<ul>${listItems.join('')}</ul>`;
+        }
+
+        if (result) formattedSections.push(result);
+
+      } else {
+        // Regular paragraph - no bullets
+        formattedSections.push(`<p>${section.trim()}</p>`);
+      }
+    }
+
+    return formattedSections.join('');
+  }
+
+  function updateStatus(text, connected) {
+    const status = document.getElementById('status');
+    status.textContent = text;
+    status.className = `status ${connected ? 'connected' : 'disconnected'}`;
+  }
+
+  function connectWebSocket() {
+    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsHost = window.location.host;
+    const endpoint = currentMode === 'voice' ? '/ws/voice' : '/ws/text';
+
+    socket = new WebSocket(`${wsProtocol}://${wsHost}${endpoint}`);
+    socket.binaryType = "arraybuffer";
+
+    socket.onopen = () => {
+      addLog(`Connected to ${currentMode.toUpperCase()} endpoint`, "received");
+      updateStatus(`Connected in ${currentMode.toUpperCase()} mode`, true);
+      document.getElementById("connectBtn").disabled = true;
+      document.getElementById("disconnectBtn").disabled = false;
+
+      if (currentMode === 'voice') {
+        document.getElementById("startVoiceBtn").disabled = false;
+        initAudioContext();
+      }
+    };
+
+    socket.onmessage = async (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        // Handle binary audio data (prioritize this like call-center project)
+        try {
+          await playAudio(event.data);
+          showAudioIndicator();
+        } catch (e) {
+          console.error("Failed to play audio:", e);
+          addLog(`Audio playback error: ${e.message}`, "error");
+        }
+      } else if (typeof event.data === "string") {
+        try {
+          const data = JSON.parse(event.data);
+
+          // Handle JSON messages for transcription, stop audio, etc.
+          if (data.Kind === "StopAudio") {
+            addLog("🛑 Audio stopped", "voice");
+            // Stop any ongoing audio playback
+            if (workletNode) {
+              workletNode.port.postMessage({ clear: true });
+            }
+          } else if (data.Kind === "Transcription") {
+            addLog(`📝 ${data.Text}`, "received");
+          } else if (data.Kind === "AudioData" && data.AudioData && data.AudioData.Data) {
+            // Fallback: Decode base64 audio data (should not happen with raw_audio=True)
+            const base64Audio = data.AudioData.Data;
+            const audioBytes = base64ToArrayBuffer(base64Audio);
+            await playAudio(audioBytes);
+            showAudioIndicator();
+          } else {
+            // Handle regular text messages
+            handleTextMessage(data);
+          }
+        } catch (e) {
+          addLog(`Raw message: ${event.data}`, "received");
+        }
+      } else {
+        console.log("Unknown message type:", event.data);
+      }
+    };
+
+    socket.onclose = () => {
+      addLog("Disconnected from AI Assistant", "info");
+      updateStatus("Disconnected", false);
+      document.getElementById("connectBtn").disabled = false;
+      document.getElementById("disconnectBtn").disabled = true;
+      document.getElementById("startVoiceBtn").disabled = true;
+      document.getElementById("stopVoiceBtn").disabled = true;
+      readyMessageShown = false; // Reset flag for next connection
+    };
+
+    socket.onerror = (err) => {
+      addLog("WebSocket connection error", "error");
+      console.error("WebSocket error:", err);
+    };
+  }
+
+  function disconnectWebSocket() {
+    if (isRecording) {
+      stopVoice();
+    }
+    if (socket) {
+      socket.close();
+    }
+  }
+
+  function handleTextMessage(data) {
+    const type = data.type || 'unknown';
+
+    switch (type) {
+      case 'ready':
+        if (!readyMessageShown) {
+          addLog(`✅ ${data.text}`, "received");
+          readyMessageShown = true;
+        }
+        break;
+      case 'orchestration_response':
+        // Handle multi-agent response
+        if (data.spoken_response) {
+          // Clean and format the AI response properly
+          const cleanResponse = data.spoken_response.trim();
+          if (cleanResponse) {
+            addLog(`🤖 AI Response: ${cleanResponse}`, "voice");
+          }
+        }
+        if (data.card_data) {
+          displayCard(data.card_data);
+          addLog(`📋 Generated appointment preparation checklist`, "received");
+          // Log only agent name and function called by the orchestrator
+          if (Array.isArray(data.card_data.agents)) {
+            data.card_data.agents.forEach(agent => {
+              const agentName = agent.name || agent.agent || 'UnknownAgent';
+              const funcName = agent.function || agent.func || 'UnknownFunction';
+              console.log(`[Orchestrator] Agent: ${agentName}, Function: ${funcName}`);
+            });
+          }
+        }
+        break;
+      case 'card':
+        // Handle card data from voice orchestration
+        if (data.payload) {
+          displayCard(data.payload);
+          // Only log once when card is first displayed
+          if (!document.getElementById('cardDisplay').classList.contains('active')) {
+            addLog(`📋 Generated appointment preparation checklist`, "received");
+          }
+        }
+        break;
+      case 'echo':
+        addLog(`Echo: ${data.text.replace('Echo: ', '')}`, "received");
+        break;
+      case 'Transcription':
+        addLog(`🤖 AI Response: ${data.text}`, "voice");
+        break;
+      case 'error':
+        addLog(`❌ Error: ${data.text}`, "error");
+        break;
+      default:
+        const text = data.text || JSON.stringify(data);
+        addLog(`📨 ${type}: ${text}`, "received");
+    }
+  }
+
+  function displayCard(cardData) {
+    const cardDisplay = document.getElementById('cardDisplay');
+    const cardTitle = document.getElementById('cardTitle');
+    const cardContent = document.getElementById('cardContent');
+
+    // Set title
+    cardTitle.textContent = cardData.title || 'Appointment Preparation Guide';
+
+    // Build card content
+    let html = '';
+
+    // Appointment details
+    if (cardData.appointment_details) {
+      html += '<div class="card-section">';
+      html += '<h3>📅 Appointment Details</h3>';
+      html += '<ul>';
+      if (cardData.appointment_details.doctor) {
+        html += `<li><strong>Doctor:</strong> ${cardData.appointment_details.doctor}</li>`;
+      }
+      if (cardData.appointment_details.reason) {
+        html += `<li><strong>Reason:</strong> ${cardData.appointment_details.reason}</li>`;
+      }
+      if (cardData.appointment_details.timing) {
+        html += `<li><strong>When:</strong> ${cardData.appointment_details.timing}</li>`;
+      }
+      html += '</ul>';
+      html += '</div>';
+    }
+
+    // Preparation items
+    if (cardData.preparation_items && cardData.preparation_items.length > 0) {
+      html += '<div class="card-section">';
+      html += '<h3>📝 What to Bring/Prepare</h3>';
+      html += '<ul>';
+      cardData.preparation_items.forEach(item => {
+        html += `<li>${item}</li>`;
+      });
+      html += '</ul>';
+      html += '</div>';
+    }
+
+    // Questions to ask
+    if (cardData.questions_to_ask && cardData.questions_to_ask.length > 0) {
+      html += '<div class="card-section">';
+      html += '<h3>❓ Questions to Ask Your Doctor</h3>';
+      html += '<ul>';
+      cardData.questions_to_ask.forEach(question => {
+        html += `<li>${question}</li>`;
+      });
+      html += '</ul>';
+      html += '</div>';
+    }
+
+    // Follow-up actions
+    if (cardData.follow_up_actions && cardData.follow_up_actions.length > 0) {
+      html += '<div class="card-section">';
+      html += '<h3>📋 After Your Appointment</h3>';
+      html += '<ul>';
+      cardData.follow_up_actions.forEach(action => {
+        html += `<li>${action}</li>`;
+      });
+      html += '</ul>';
+      html += '</div>';
+    }
+
+    cardContent.innerHTML = html;
+    cardDisplay.classList.add('active');
+  }
+
+  function sendTextMessage() {
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+
+    if (message && socket && socket.readyState === WebSocket.OPEN) {
+      const payload = {
+        type: "text",
+        text: message
+      };
+
+      socket.send(JSON.stringify(payload));
+      addLog(`📤 Sent: ${message}`, "sent");
+      input.value = '';
+    }
+  }
+
+  async function initAudioContext() {
+    try {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+
+      // Load AudioWorklet for better audio playback
+      try {
+        await audioContext.audioWorklet.addModule('/static/audio-processor.js');
+        workletNode = new AudioWorkletNode(audioContext, 'ring-buffer-processor');
+        workletNode.connect(audioContext.destination);
+      } catch (e) {
+        console.warn("AudioWorklet not available, using fallback:", e);
+      }
+
+      addLog("Audio context initialized", "voice");
+    } catch (e) {
+      addLog(`Failed to initialize audio: ${e.message}`, "error");
+    }
+  }
+
+  async function startVoice() {
+    if (isRecording) return;
+
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 24000
+        }
+      });
+
+      await audioContext.resume();
+      source = audioContext.createMediaStreamSource(mediaStream);
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+      processor.onaudioprocess = (event) => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          const input = event.inputBuffer.getChannelData(0);
+          const pcm = float32ToInt16(input);
+          socket.send(pcm.buffer);
+        }
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      isRecording = true;
+      document.getElementById("startVoiceBtn").disabled = true;
+      document.getElementById("stopVoiceBtn").disabled = false;
+
+      addLog("🎤 Voice recording started", "voice");
+
+    } catch (e) {
+      addLog(`Failed to start voice: ${e.message}`, "error");
+    }
+  }
+
+  function stopVoice() {
+    if (!isRecording) return;
+
+    if (processor) {
+      processor.disconnect();
+      processor = null;
+    }
+
+    if (source) {
+      source.disconnect();
+      source = null;
+    }
+
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      mediaStream = null;
+    }
+
+    isRecording = false;
+    document.getElementById("startVoiceBtn").disabled = false;
+    document.getElementById("stopVoiceBtn").disabled = true;
+
+    addLog("🛑 Voice recording stopped", "voice");
+  }
+
+  function float32ToInt16(buffer) {
+    const l = buffer.length;
+    const buf = new Int16Array(l);
+    for (let i = 0; i < l; i++) {
+      buf[i] = Math.max(-1, Math.min(1, buffer[i])) * 0x7FFF;
+    }
+    return buf;
+  }
+
+  function base64ToArrayBuffer(base64) {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  async function playAudio(arrayBuffer) {
+    try {
+      if (!audioContext) {
+        await initAudioContext();
+      }
+
+      // Convert Int16 PCM to Float32 for AudioWorklet (same as call-center project)
+      const int16 = new Int16Array(arrayBuffer);
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7FFF);
+      }
+
+      // Send to AudioWorklet if available, otherwise fallback to direct playback
+      if (workletNode) {
+        workletNode.port.postMessage({ pcm: float32 });
+      } else {
+        // Fallback: create buffer source for direct playback
+        const audioBuffer = audioContext.createBuffer(1, float32.length, audioContext.sampleRate);
+        audioBuffer.getChannelData(0).set(float32);
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        source.start();
+      }
+    } catch (e) {
+      console.error("Error playing audio:", e);
+      addLog(`Audio playback error: ${e.message}`, "error");
+    }
+  }
+
+  function showAudioIndicator() {
+    const indicator = document.getElementById('audioIndicator');
+    indicator.classList.add('active');
+    setTimeout(() => {
+      indicator.classList.remove('active');
+    }, 2000);
+  }
+
+  // Allow Enter key to send message in text mode
+  document.getElementById('messageInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      sendTextMessage();
+    }
+  });
+
+  // Initialize in voice mode
+  setMode('voice');
+</script>
