@@ -1,24 +1,37 @@
 import os
+import json
 import semantic_kernel as sk
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
 from semantic_kernel.functions.kernel_arguments import KernelArguments
 from pydantic import BaseModel
+from typing import List, Dict, Optional
 import logging
 
 from plugins import CaregiverPlugin
 
 logger = logging.getLogger(__name__)
 
-# Conversation state management
-conversation_context = {}
-
 class ConversationState:
-    """Tracks the state of appointment preparation conversations."""
+    """Unified state management for appointment preparation conversations."""
     def __init__(self):
+        # Phase management
         self.phase = "idle"  # idle, gathering_info, information_complete, card_ready
-        self.appointment_type = None
-        self.gathered_info = []
         self.completion_signals = 0  # Count of completion indicators
+        
+        # Conversation context
+        self.previous_queries = []
+        self.patient_info = {}
+        self.appointment_type = None
+        
+        # Agent response storage
+        self.gathered_checklist = None
+        self.gathered_context = None
+        self.gathered_info = []  # Keep for backward compatibility
+        
+        # User preferences
+        self.show_cards_immediately = False
+        self.preferred_response_style = "conversational"  # "detailed", "brief", "conversational"
+        self.voice_first = True  # Prioritize voice over visual elements
         
     def is_gathering_info(self) -> bool:
         return self.phase == "gathering_info"
@@ -35,27 +48,92 @@ class ConversationState:
         self.completion_signals += 1
         if self.completion_signals >= 1:  # One strong signal is enough
             self.phase = "information_complete"
+    
+    def to_json(self) -> str:
+        """Convert ConversationState to JSON string for passing to agent functions."""
+        return json.dumps({
+            "phase": self.phase,
+            "completion_signals": self.completion_signals,
+            "previous_queries": self.previous_queries,
+            "patient_info": self.patient_info,
+            "appointment_type": self.appointment_type,
+            "conversation_history": [str(q) for q in self.previous_queries],  # Simple history
+            "user_preferences": {
+                "show_cards_immediately": self.show_cards_immediately,
+                "preferred_response_style": self.preferred_response_style,
+                "voice_first": self.voice_first
+            }
+        })
             
     def mark_card_generated(self):
         self.phase = "card_ready"
         
+    def add_query(self, query: str):
+        """Add a new query to the conversation history."""
+        self.previous_queries.append(query)
+        
+    def store_agent_responses(self, checklist: str = None, context: str = None):
+        """Store responses from agent functions for later use."""
+        if checklist:
+            self.gathered_checklist = checklist
+        if context:
+            self.gathered_context = context
+            
+    def get_conversation_context(self) -> dict:
+        """Get conversation context in the old format for backward compatibility."""
+        return {
+            "previous_queries": self.previous_queries,
+            "patient_info": self.patient_info,
+            "appointment_type": self.appointment_type,
+            "gathered_checklist": self.gathered_checklist,
+            "gathered_context": self.gathered_context
+        }
+        
     def reset(self):
+        """Reset all conversation state."""
         self.phase = "idle"
         self.appointment_type = None
         self.gathered_info = []
         self.completion_signals = 0
+        self.previous_queries = []
+        self.patient_info = {}
+        self.gathered_checklist = None
+        self.gathered_context = None
 
 # Session-based conversation states
 session_states = {}
 
-class UserPreferences:
-    """User preferences for conversation flow control."""
-    def __init__(self):
-        self.show_cards_immediately = False
-        self.preferred_response_style = "conversational"  # "detailed", "brief", "conversational"
-        self.voice_first = True  # Prioritize voice over visual elements
 
-# Define a Pydantic model for our structured response [cite: 483]
+
+# Define Pydantic models for structured agent responses (matching plugins.py structure)
+class AgentChecklistResponse(BaseModel):
+    """Structured response from InfoAgent"""
+    summary: str
+    checklist_items: List[str]
+    links: List[Dict[str, str]] = []
+    follow_up_question: Optional[str] = None
+    appointment_type: Optional[str] = None
+    priority_level: str = "medium"
+
+class PatientContextResponse(BaseModel):
+    """Structured response from PatientContextAgent"""
+    summary: str
+    medical_context: Dict[str, str]
+    relevant_conditions: List[str] = []
+    current_medications: List[str] = []
+    follow_up_question: Optional[str] = None
+    confidence_level: str = "medium"
+
+class ActionAgentResponse(BaseModel):
+    """Structured response from ActionAgent"""
+    summary: str
+    questions_to_ask: List[str] = []
+    follow_up_actions: List[str] = []
+    priority_items: List[str] = []
+    follow_up_question: Optional[str] = None
+    next_steps: List[str] = []
+
+# Define a Pydantic model for our final orchestrated response
 class ChecklistResponse(BaseModel):
     spoken: str
     card: dict | None = None
@@ -149,12 +227,17 @@ def classify_intent(query: str) -> str:
     else:
         return "conversational"
 
-def should_show_card(query: str, agent_response: str, preferences: UserPreferences = None) -> bool:
+def should_show_card(query: str, agent_response: str, state: ConversationState = None) -> bool:
     """Determine if a card should be displayed based on content and user preferences."""
-    if preferences is None:
-        preferences = UserPreferences()
+    if state is None:
+        # Default preferences when no state is provided
+        voice_first = True
+        show_cards_immediately = False
+    else:
+        voice_first = state.voice_first
+        show_cards_immediately = state.show_cards_immediately
         
-    if not preferences.voice_first:
+    if not voice_first or show_cards_immediately:
         return True
         
     # Only show cards for structured content
@@ -163,37 +246,29 @@ def should_show_card(query: str, agent_response: str, preferences: UserPreferenc
     
     return has_list_items and is_checklist_query
 
-def generate_dynamic_card(checklist: str, context: str, query: str = "") -> dict:
-    """Generate card data from agent responses in the format expected by the frontend."""
-    preparation_items = []
-    questions_to_ask = []
+def generate_dynamic_card(checklist_json: str, context_json: str, query: str = "") -> dict:
+    """Generate card data from structured agent responses."""
+    logger.info(f"🃏 Card Generation - Input Data: checklist={checklist_json[:100]}..., context={context_json[:100]}..., query={query}")
     
-    lines = checklist.split('\n')
-    current_section = "preparation"  # Default section
-    
-    for line in lines:
-        line = line.strip()
+    try:
+        # Parse structured agent responses
+        checklist_data = json.loads(checklist_json) if checklist_json.startswith('{') else {}
+        context_data = json.loads(context_json) if context_json.startswith('{') else {}
         
-        # Skip empty lines and headers
-        if not line or line.startswith('I\'ll help') or line.startswith('For your') or line.startswith('To make'):
-            continue
-            
-        # Check for section headers
-        if 'question' in line.lower() or 'ask' in line.lower():
-            current_section = "questions"
-            continue
-        elif 'bring' in line.lower() or 'preparation' in line.lower():
-            current_section = "preparation" 
-            continue
-            
-        # Extract list items
-        if line.startswith('-') or line.startswith('•'):
-            item_text = line[1:].strip()
-            if item_text and not item_text.startswith('http'):  # Skip URLs
-                if current_section == "questions":
-                    questions_to_ask.append(item_text)
-                else:
-                    preparation_items.append(item_text)
+        # Extract structured data from agent responses (supporting both old and new format)
+        preparation_items = checklist_data.get("checklist_items", checklist_data.get("preparation_items", []))
+        appointment_type = checklist_data.get("appointment_type", "General")
+        helpful_links = checklist_data.get("links", checklist_data.get("helpful_links", []))
+        
+        # Get patient context
+        medical_context = context_data.get("medical_context", {})
+        relevant_conditions = context_data.get("relevant_conditions", [])
+        current_medications = context_data.get("current_medications", [])
+        
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse structured agent responses, falling back to text parsing")
+        # Fallback to old parsing method for backward compatibility
+        return generate_dynamic_card_fallback(checklist_json, context_json, query)
     
     # Extract appointment details from query
     appointment_details = {}
@@ -207,16 +282,13 @@ def generate_dynamic_card(checklist: str, context: str, query: str = "") -> dict
                 appointment_details['doctor'] = f"Dr. {words[i+1].title()}"
                 break
     
-    # Extract appointment reason from context and query
-    if 'cardiology' in (query + context).lower() or 'heart' in query_lower or 'chest pain' in query_lower:
+    # Set appointment reason based on type
+    if appointment_type == "Cardiology":
         appointment_details['reason'] = 'Cardiology consultation'
-        appointment_type = "Cardiology"
-    elif 'dermatology' in (query + context).lower() or 'skin' in query_lower:
-        appointment_details['reason'] = 'Dermatology consultation' 
-        appointment_type = "Dermatology"
+    elif appointment_type == "Dermatology":
+        appointment_details['reason'] = 'Dermatology consultation'
     else:
         appointment_details['reason'] = 'Medical consultation'
-        appointment_type = "General"
     
     # Extract timing if mentioned
     if 'next week' in query_lower:
@@ -226,32 +298,91 @@ def generate_dynamic_card(checklist: str, context: str, query: str = "") -> dict
     elif 'today' in query_lower:
         appointment_details['timing'] = 'Today'
     
-    # Add some default questions if none were found
-    if not questions_to_ask:
-        if appointment_type == "Cardiology":
-            questions_to_ask = [
-                "What tests or procedures might be needed?",
-                "Are there any lifestyle changes I should make?",
-                "How often should I monitor my symptoms?"
-            ]
-        elif appointment_type == "Dermatology":
-            questions_to_ask = [
-                "Are there any concerning features I should watch for?",
-                "What skincare routine do you recommend?",
-                "When should I schedule a follow-up?"
-            ]
-        else:
-            questions_to_ask = [
-                "Are there any additional tests needed?", 
-                "What follow-up care is recommended?",
-                "Are there any warning signs to watch for?"
-            ]
+    # Generate questions based on appointment type and medical context
+    questions_to_ask = []
+    if appointment_type == "Cardiology":
+        questions_to_ask = [
+            "What tests or procedures might be needed?",
+            "Are there any lifestyle changes I should make?",
+            "How often should I monitor my symptoms?"
+        ]
+        if "chest pain" in medical_context.get("current_symptoms", "").lower():
+            questions_to_ask.insert(0, "How can I better manage my chest pain episodes?")
+    elif appointment_type == "Dermatology":
+        questions_to_ask = [
+            "Are there any concerning features I should watch for?",
+            "What skincare routine do you recommend?",
+            "When should I schedule a follow-up?"
+        ]
+    else:
+        questions_to_ask = [
+            "Are there any additional tests needed?", 
+            "What follow-up care is recommended?",
+            "Are there any warning signs to watch for?"
+        ]
     
-    return {
+    # Generate follow-up actions based on medical context
+    follow_up_actions = [
+        "Schedule any recommended follow-up appointments",
+        "Fill any new prescriptions promptly", 
+        "Keep a record of visit notes for future reference"
+    ]
+    
+    if current_medications:
+        follow_up_actions.insert(0, "Review current medications with your doctor")
+    
+    card_data = {
         "title": f"{appointment_type} Appointment Preparation",
         "appointment_details": appointment_details,
         "preparation_items": preparation_items,
         "questions_to_ask": questions_to_ask,
+        "follow_up_actions": follow_up_actions,
+        "helpful_links": helpful_links
+    }
+    
+    logger.info(f"🃏 Generated Card Data: {json.dumps(card_data, indent=2)}")
+    return card_data
+
+def generate_dynamic_card_fallback(checklist: str, context: str, query: str = "") -> dict:
+    """Fallback card generation for text-based responses (backward compatibility)."""
+    # This is the old implementation for backward compatibility
+    preparation_items = []
+    questions_to_ask = []
+    
+    lines = checklist.split('\n')
+    current_section = "preparation"
+    
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('I\'ll help') or line.startswith('For your') or line.startswith('To make'):
+            continue
+        if 'question' in line.lower() or 'ask' in line.lower():
+            current_section = "questions"
+            continue
+        elif 'bring' in line.lower() or 'preparation' in line.lower():
+            current_section = "preparation" 
+            continue
+        if line.startswith('-') or line.startswith('•'):
+            item_text = line[1:].strip()
+            if item_text and not item_text.startswith('http'):
+                if current_section == "questions":
+                    questions_to_ask.append(item_text)
+                else:
+                    preparation_items.append(item_text)
+    
+    query_lower = query.lower()
+    if 'cardiology' in (query + context).lower() or 'heart' in query_lower:
+        appointment_type = "Cardiology"
+    elif 'dermatology' in (query + context).lower() or 'skin' in query_lower:
+        appointment_type = "Dermatology"
+    else:
+        appointment_type = "General"
+    
+    return {
+        "title": f"{appointment_type} Appointment Preparation",
+        "appointment_details": {},
+        "preparation_items": preparation_items,
+        "questions_to_ask": questions_to_ask if questions_to_ask else ["What should I expect during this appointment?"],
         "follow_up_actions": [
             "Schedule any recommended follow-up appointments",
             "Fill any new prescriptions promptly", 
@@ -259,32 +390,62 @@ def generate_dynamic_card(checklist: str, context: str, query: str = "") -> dict
         ]
     }
 
-async def simple_response_flow(query: str) -> ChecklistResponse:
+async def simple_response_flow(query: str, conversation_state: ConversationState = None) -> ChecklistResponse:
     """Simple flow for general questions - InfoAgent only."""
+    if conversation_state is None:
+        conversation_state = ConversationState()
+        
     info_function = kernel.get_function("CaregiverPlugin", "InfoAgent")
-    arguments = KernelArguments(query=query)
+    arguments = KernelArguments(query=query, conversation_state=conversation_state.to_json())
     info_result = await kernel.invoke(info_function, arguments)
+    info_json = str(info_result)
+    
+    # Extract spoken response from enhanced structured output
+    try:
+        info_data = json.loads(info_json)
+        # Use summary instead of spoken_text for the new format
+        spoken_response = info_data.get("summary", info_data.get("spoken_text", str(info_result)))
+    except json.JSONDecodeError:
+        spoken_response = str(info_result)  # Fallback to raw text
     
     return ChecklistResponse(
-        spoken=str(info_result),
+        spoken=spoken_response,
         card=None
     )
 
-async def contextual_flow(query: str) -> ChecklistResponse:
+async def contextual_flow(query: str, conversation_state: ConversationState = None) -> ChecklistResponse:
     """Context flow for patient-specific queries - InfoAgent + PatientContextAgent."""
+    if conversation_state is None:
+        conversation_state = ConversationState()
+        
     # Get functions
     info_function = kernel.get_function("CaregiverPlugin", "InfoAgent")
     context_function = kernel.get_function("CaregiverPlugin", "PatientContextAgent")
     
-    # Execute InfoAgent and PatientContextAgent with query context
-    info_arguments = KernelArguments(query=query)
+    # Execute InfoAgent and PatientContextAgent with query context and conversation state
+    info_arguments = KernelArguments(query=query, conversation_state=conversation_state.to_json())
     info_result = await kernel.invoke(info_function, info_arguments)
+    info_json = str(info_result)
     
-    context_arguments = KernelArguments(user_query=query)
+    context_arguments = KernelArguments(user_query=query, conversation_state=conversation_state.to_json())
     context_result = await kernel.invoke(context_function, context_arguments)
+    context_json = str(context_result)
+    
+    # Extract spoken responses from enhanced structured outputs
+    try:
+        info_data = json.loads(info_json)
+        info_spoken = info_data.get("summary", info_data.get("spoken_text", str(info_result)))
+    except json.JSONDecodeError:
+        info_spoken = str(info_result)
+        
+    try:
+        context_data = json.loads(context_json)
+        context_spoken = context_data.get("summary", context_data.get("spoken_text", str(context_result)))
+    except json.JSONDecodeError:
+        context_spoken = str(context_result)
     
     # Combine responses
-    combined_response = f"{str(info_result)}\n\nBased on your medical history:\n{str(context_result)}"
+    combined_response = f"{info_spoken}\n\nBased on your medical history:\n{context_spoken}"
     
     return ChecklistResponse(
         spoken=combined_response,
@@ -310,69 +471,90 @@ async def conversational_flow(query: str) -> ChecklistResponse:
         card=None
     )
 
-async def full_agent_flow_no_card(query: str, context: dict) -> dict:
+async def full_agent_flow_no_card(query: str, context: dict, conversation_state: ConversationState = None) -> dict:
     """Full 3-agent flow for appointment preparation - stores data but doesn't generate card yet."""
+    if conversation_state is None:
+        conversation_state = ConversationState()
+        
     logger.info("Running full multi-agent orchestration for information gathering...")
     
     # Step 1: Call InfoAgent to get the contextual checklist
     info_function = kernel.get_function("CaregiverPlugin", "InfoAgent")
-    info_arguments = KernelArguments(query=query)
+    info_arguments = KernelArguments(query=query, conversation_state=conversation_state.to_json())
     checklist_result = await kernel.invoke(info_function, info_arguments)
-    checklist = str(checklist_result)
-    logger.info(f"InfoAgent completed: {checklist[:100]}...")
+    checklist_json = str(checklist_result)
+    logger.info(f"InfoAgent completed: {checklist_json[:100]}...")
     
     # Step 2: Call PatientContextAgent with user query for context-aware response
     context_function = kernel.get_function("CaregiverPlugin", "PatientContextAgent")
-    context_arguments = KernelArguments(user_query=query)
+    context_arguments = KernelArguments(user_query=query, conversation_state=conversation_state.to_json())
     context_result = await kernel.invoke(context_function, context_arguments)
-    patient_context = str(context_result)
-    logger.info(f"PatientContextAgent completed: {patient_context[:100]}...")
+    patient_context_json = str(context_result)
+    logger.info(f"PatientContextAgent completed: {patient_context_json[:100]}...")
     
     # Step 3: Call ActionAgent to create contextual response based on user query
     action_function = kernel.get_function("CaregiverPlugin", "ActionAgent")
-    arguments = KernelArguments(checklist=checklist, context=patient_context, user_query=query)
+    arguments = KernelArguments(checklist=checklist_json, context=patient_context_json, user_query=query, conversation_state=conversation_state.to_json())
     result = await kernel.invoke(action_function, arguments)
-    logger.info(f"ActionAgent completed: {str(result)[:100]}...")
+    action_json = str(result)
+    logger.info(f"ActionAgent completed: {action_json[:100]}...")
 
-    # Return data without generating card
+    # Extract spoken response from ActionAgent's enhanced structured output
+    try:
+        action_data = json.loads(action_json)
+        spoken_response = action_data.get("summary", action_data.get("spoken_text", str(result)))
+    except json.JSONDecodeError:
+        spoken_response = str(result)  # Fallback to raw text
+
+    # Return structured data without generating card
     return {
-        "spoken": str(result),
-        "checklist": checklist,
-        "context": patient_context
+        "spoken": spoken_response,
+        "checklist": checklist_json,
+        "context": patient_context_json
     }
 
-async def full_agent_flow(query: str) -> ChecklistResponse:
+async def full_agent_flow(query: str, conversation_state: ConversationState = None) -> ChecklistResponse:
     """Full 3-agent flow for appointment preparation requests."""
+    if conversation_state is None:
+        conversation_state = ConversationState()
+        
     logger.info("Running full multi-agent orchestration...")
     
     # Step 1: Call InfoAgent to get the contextual checklist
     info_function = kernel.get_function("CaregiverPlugin", "InfoAgent")
-    info_arguments = KernelArguments(query=query)
+    info_arguments = KernelArguments(query=query, conversation_state=conversation_state.to_json())
     checklist_result = await kernel.invoke(info_function, info_arguments)
-    checklist = str(checklist_result)
-    logger.info(f"InfoAgent completed: {checklist[:100]}...")
+    checklist_json = str(checklist_result)
+    logger.info(f"InfoAgent completed: {checklist_json[:100]}...")
     
     # Step 2: Call PatientContextAgent with user query for context-aware response
     context_function = kernel.get_function("CaregiverPlugin", "PatientContextAgent")
-    context_arguments = KernelArguments(user_query=query)
+    context_arguments = KernelArguments(user_query=query, conversation_state=conversation_state.to_json())
     context_result = await kernel.invoke(context_function, context_arguments)
-    context = str(context_result)
-    logger.info(f"PatientContextAgent completed: {context[:100]}...")
+    context_json = str(context_result)
+    logger.info(f"PatientContextAgent completed: {context_json[:100]}...")
     
     # Step 3: Call ActionAgent to create contextual response based on user query
     action_function = kernel.get_function("CaregiverPlugin", "ActionAgent")
-    arguments = KernelArguments(checklist=checklist, context=context, user_query=query)
+    arguments = KernelArguments(checklist=checklist_json, context=context_json, user_query=query, conversation_state=conversation_state.to_json())
     result = await kernel.invoke(action_function, arguments)
-    logger.info(f"ActionAgent completed: {str(result)[:100]}...")
+    action_json = str(result)
+    logger.info(f"ActionAgent completed: {action_json[:100]}...")
+
+    # Extract spoken response from ActionAgent's enhanced structured output
+    try:
+        action_data = json.loads(action_json)
+        spoken_response = action_data.get("summary", action_data.get("spoken_text", str(result)))
+    except json.JSONDecodeError:
+        spoken_response = str(result)  # Fallback to raw text
 
     # Generate dynamic card based on agent outputs
-    preferences = UserPreferences()
     card_payload = None
-    if should_show_card(query, checklist, preferences):
-        card_payload = generate_dynamic_card(checklist, context, query)
+    if should_show_card(query, checklist_json, conversation_state):
+        card_payload = generate_dynamic_card(checklist_json, context_json, query)
         logger.info("Generated dynamic card from agent responses")
 
-    return ChecklistResponse(spoken=str(result), card=card_payload)
+    return ChecklistResponse(spoken=spoken_response, card=card_payload)
 
 def enforce_single_question(response_text: str) -> str:
     """Ensure response contains only one question by extracting the first question if multiple exist."""
@@ -403,19 +585,8 @@ async def run_orchestration(query: str, session_id: str = "default") -> Checklis
     if session_id not in session_states:
         session_states[session_id] = ConversationState()
     
-    # Retrieve or initialize conversation context
-    if session_id not in conversation_context:
-        conversation_context[session_id] = {
-            "previous_queries": [],
-            "patient_info": {},
-            "appointment_type": None,
-            "gathered_checklist": None,
-            "gathered_context": None
-        }
-    
     state = session_states[session_id]
-    context = conversation_context[session_id]
-    context["previous_queries"].append(query)
+    state.add_query(query)
     
     # Check for conversation completion signals
     is_completion_signal = detect_conversation_completion(query, state)
@@ -425,10 +596,10 @@ async def run_orchestration(query: str, session_id: str = "default") -> Checklis
         state.mark_card_generated()
         
         # Generate card from stored information
-        if context.get("gathered_checklist") and context.get("gathered_context"):
+        if state.gathered_checklist and state.gathered_context:
             card_payload = generate_dynamic_card(
-                context["gathered_checklist"], 
-                context["gathered_context"], 
+                state.gathered_checklist, 
+                state.gathered_context, 
                 query
             )
             
@@ -450,12 +621,14 @@ async def run_orchestration(query: str, session_id: str = "default") -> Checklis
         # Start information gathering mode (no card yet)
         state.mark_info_gathering_started()
         
-        # Get checklist and context info but don't generate card yet
-        result = await full_agent_flow_no_card(query, context)
+        # Get checklist and context info but don't generate card yet - pass conversation state
+        result = await full_agent_flow_no_card(query, state.get_conversation_context(), state)
         
         # Store the information for later card generation
-        context["gathered_checklist"] = result.get("checklist", "")
-        context["gathered_context"] = result.get("context", "")
+        state.store_agent_responses(
+            checklist=result.get("checklist", ""),
+            context=result.get("context", "")
+        )
         
         # Enforce single question rule and add continuation guidance
         spoken_response = enforce_single_question(result["spoken"])
@@ -465,22 +638,23 @@ async def run_orchestration(query: str, session_id: str = "default") -> Checklis
         return ChecklistResponse(spoken=spoken_response, card=None)
         
     elif intent == "general_question":
-        # Just InfoAgent for general medical questions  
-        result = await simple_response_flow(query)
+        # Just InfoAgent for general medical questions - pass conversation state
+        result = await simple_response_flow(query, state)
         result.spoken = enforce_single_question(result.spoken)
         return result
         
     elif intent == "patient_specific":
         # Continue information gathering if in progress
         if state.is_gathering_info():
-            result = await contextual_flow(query)
+            result = await contextual_flow(query, state)
             # Update stored context
-            context["gathered_context"] = context.get("gathered_context", "") + f"\nAdditional info: {str(result.spoken)}"
+            additional_context = (state.gathered_context or "") + f"\nAdditional info: {str(result.spoken)}"
+            state.store_agent_responses(context=additional_context)
             result.spoken = enforce_single_question(result.spoken)
             return result
         else:
             # Regular patient-specific flow
-            result = await contextual_flow(query)
+            result = await contextual_flow(query, state)
             result.spoken = enforce_single_question(result.spoken)
             return result
     else:

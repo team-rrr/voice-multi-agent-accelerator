@@ -7,6 +7,7 @@ import os
 import logging
 import json
 import asyncio
+import uuid
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -31,7 +32,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def websocket_voice_endpoint(websocket: WebSocket):
     """WebSocket endpoint for voice interaction with multi-agent orchestration using Voice Live API."""
     await websocket.accept()
-    logger.info("Voice Multi-Agent WebSocket connection accepted")
+    
+    # Generate unique session ID for this WebSocket connection
+    session_id = str(uuid.uuid4())
+    logger.info(f"Voice Multi-Agent WebSocket connection accepted with session ID: {session_id}")
 
     # Get configuration
     config = {
@@ -49,8 +53,13 @@ async def websocket_voice_endpoint(websocket: WebSocket):
         }))
         return
 
-    # Initialize Voice Live handler with orchestration callback
-    handler = VoiceLiveHandler(config, on_final_transcription=run_orchestration)
+    # Create orchestration callback with session ID
+    async def orchestration_callback(transcript: str) -> ChecklistResponse:
+        """Wrapper to call run_orchestration with session_id."""
+        return await run_orchestration(transcript, session_id=session_id)
+
+    # Initialize Voice Live handler with session-aware orchestration callback
+    handler = VoiceLiveHandler(config, on_final_transcription=orchestration_callback)
     
     try:
         # Set up client WebSocket connection
@@ -111,9 +120,12 @@ async def websocket_voice_endpoint(websocket: WebSocket):
 
 @app.websocket("/ws/text")
 async def websocket_text_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for text-only echo (fallback/testing)."""
+    """WebSocket endpoint for text-only interaction with multi-agent orchestration."""
     await websocket.accept()
-    logger.info("Text WebSocket connection accepted")
+    
+    # Generate unique session ID for this WebSocket connection
+    session_id = str(uuid.uuid4())
+    logger.info(f"Text WebSocket connection accepted with session ID: {session_id}")
 
     try:
         while True:
@@ -125,21 +137,48 @@ async def websocket_text_endpoint(websocket: WebSocket):
                 # Try to parse as JSON
                 message = json.loads(data)
                 if message.get("type") == "text":
-                    # Echo back the text
+                    # Use orchestration instead of echo
+                    user_text = message.get('text', '')
+                    if user_text.strip():
+                        # Call orchestration with session ID
+                        orchestration_response = await run_orchestration(user_text, session_id=session_id)
+                        
+                        # Send back orchestrated response
+                        response = {
+                            "type": "orchestration",
+                            "spoken": orchestration_response.spoken,
+                            "card": orchestration_response.card
+                        }
+                        await websocket.send_text(json.dumps(response))
+                        logger.info(f"Orchestrated response sent for session {session_id}")
+                    else:
+                        # Empty text - send helpful prompt
+                        response = {
+                            "type": "prompt",
+                            "text": "I'm here to help you prepare for medical appointments. What can I assist you with?"
+                        }
+                        await websocket.send_text(json.dumps(response))
+                        
+                elif message.get("type") == "ping":
+                    # Health check ping
                     response = {
-                        "type": "echo",
-                        "text": f"Echo: {message.get('text', '')}"
+                        "type": "pong",
+                        "text": "Multi-Agent Assistant is alive",
+                        "session_id": session_id
                     }
                     await websocket.send_text(json.dumps(response))
-                    logger.info(f"Echoed: {response}")
+                    
             except json.JSONDecodeError:
-                # If not JSON, just echo the raw text
-                response = {
-                    "type": "echo", 
-                    "text": f"Echo: {data}"
-                }
-                await websocket.send_text(json.dumps(response))
-                logger.info(f"Echoed raw text: {response}")
+                # If not JSON, treat as direct text input for orchestration
+                if data.strip():
+                    orchestration_response = await run_orchestration(data.strip(), session_id=session_id)
+                    response = {
+                        "type": "orchestration",
+                        "spoken": orchestration_response.spoken,
+                        "card": orchestration_response.card
+                    }
+                    await websocket.send_text(json.dumps(response))
+                    logger.info(f"Orchestrated response sent for raw text input in session {session_id}")
 
     except WebSocketDisconnect:
         logger.info("Client disconnected from text endpoint")
@@ -153,9 +192,9 @@ async def websocket_text_endpoint(websocket: WebSocket):
 def read_root():
     """Root endpoint with API information."""
     return {
-        "message": "Voice Multi-Agent Echo Bot", 
+        "message": "Voice Multi-Agent Assistant", 
         "status": "running",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "endpoints": {
             "voice_websocket": "/ws/voice",
             "text_websocket": "/ws/text", 
@@ -163,34 +202,79 @@ def read_root():
             "api_query": "/api/query",
             "static_files": "/static/"
         },
-        "description": "Real-time voice echo bot using Azure Voice Live API"
+        "description": "Real-time voice multi-agent assistant using Azure Voice Live API with session-based conversation state management",
+        "features": [
+            "Session-based conversation tracking",
+            "Multi-agent orchestration with context awareness",
+            "Voice Live API integration for real-time audio processing",
+            "Dynamic checklist generation with structured responses"
+        ]
     }
 
 
 @app.get("/health")
 def health_check():
     """Health check endpoint."""
+    # Import here to avoid circular imports
+    from orchestrator import session_states
+    
     return {
         "status": "healthy",
         "voice_live_endpoint_configured": bool(os.getenv("AZURE_VOICE_LIVE_ENDPOINT")),
         "voice_live_key_configured": bool(os.getenv("AZURE_VOICE_LIVE_API_KEY")),
         "voice_live_model": os.getenv("VOICE_LIVE_MODEL", "gpt-4o-mini"),
-        "acs_connection_configured": bool(os.getenv("ACS_CONNECTION_STRING"))
+        "acs_connection_configured": bool(os.getenv("ACS_CONNECTION_STRING")),
+        "session_management": {
+            "active_sessions": len(session_states),
+            "session_tracking_enabled": True,
+            "conversation_state_management": "enabled"
+        },
+        "capabilities": [
+            "Session-based conversation tracking",
+            "Multi-agent orchestration", 
+            "Context-aware responses",
+            "Voice Live API integration"
+        ]
     }
 
 
 class QueryRequest(BaseModel):
     text: str
+    session_id: str = None  # Optional session_id, will generate if not provided
 
 
 @app.post("/api/query", response_model=ChecklistResponse)
 async def http_query(request: QueryRequest):
     """
-    Provides a text-based debug endpoint for the orchestrator.
+    Provides a text-based debug endpoint for the orchestrator with session management.
     """
-    logger.info(f"Received API query: {request.text}")
-    response = await run_orchestration(request.text)
+    # Use provided session_id or generate a new one for HTTP requests
+    session_id = request.session_id or str(uuid.uuid4())
+    
+    logger.info(f"Received API query for session {session_id}: {request.text}")
+    response = await run_orchestration(request.text, session_id=session_id)
     return response
+
+
+@app.get("/api/sessions")
+def get_sessions():
+    """Debug endpoint to show active sessions."""
+    from orchestrator import session_states
+    
+    sessions_info = {}
+    for session_id, state in session_states.items():
+        sessions_info[session_id] = {
+            "phase": state.phase,
+            "query_count": len(state.previous_queries),
+            "appointment_type": state.appointment_type,
+            "has_checklist": bool(state.gathered_checklist),
+            "has_context": bool(state.gathered_context)
+        }
+    
+    return {
+        "total_sessions": len(session_states),
+        "sessions": sessions_info
+    }
 
 
 if __name__ == "__main__":
