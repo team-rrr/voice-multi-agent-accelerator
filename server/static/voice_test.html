@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voice Multi-Agent Assistant - Appointment Preparation</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -358,10 +359,115 @@
       animation: pulse 1.5s ease-in-out infinite;
     }
 
+    .thinking-indicator {
+      display: none;
+      text-align: center;
+      margin: 15px 0;
+      padding: 12px;
+      background: #f7fafc;
+      border: 2px solid #4299e1;
+      border-radius: 8px;
+      color: #2d3748;
+      font-weight: 500;
+      position: relative;
+    }
+
+    .thinking-indicator.active {
+      display: block;
+    }
+
+    .thinking-indicator::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #4299e1;
+      border-radius: 50%;
+      margin-right: 8px;
+      animation: thinkingPulse 1.4s ease-in-out infinite;
+    }
+
+    .streaming-transcript {
+      background: #f0fff4;
+      border: 2px solid #68d391;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 10px 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #22543d;
+      font-size: 0.95rem;
+      display: none;
+      position: relative;
+      animation: streamingPulse 1.5s ease-in-out infinite;
+    }
+
+    .streaming-transcript.active {
+      display: block;
+    }
+
+    .streaming-transcript::before {
+      content: "🎤 AI Speaking: ";
+      font-weight: 600;
+      color: #2f855a;
+    }
+
+    .streaming-transcript.partial::after {
+      content: " ▋";
+      color: #68d391;
+      animation: blink 1s infinite;
+    }
+
+    .thinking-dots {
+      display: inline-block;
+      margin-left: 5px;
+    }
+
+    .thinking-dots::after {
+      content: "";
+      animation: thinkingDots 1.4s steps(4, end) infinite;
+    }
+
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+
+    @keyframes thinkingPulse {
+      0%, 100% { 
+        opacity: 0.4;
+        transform: scale(1);
+      }
+      50% { 
+        opacity: 1;
+        transform: scale(1.2);
+      }
+    }
+
+    @keyframes thinkingDots {
+      0% { content: ""; }
+      25% { content: "."; }
+      50% { content: ".."; }
+      75% { content: "..."; }
+      100% { content: ""; }
+    }
+
+    @keyframes streamingPulse {
+      0%, 100% { 
+        border-color: #68d391;
+        background: #f0fff4;
+      }
+      50% { 
+        border-color: #48bb78;
+        background: #c6f6d5;
+      }
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+
   </style>
 </head>
 <body>
@@ -404,22 +510,34 @@
       🔊 Processing voice...
     </div>
 
+    <div class="thinking-indicator" id="thinkingIndicator">
+      🤔 AI is thinking<span class="thinking-dots"></span>
+    </div>
+
+    <div class="streaming-transcript" id="streamingTranscript">
+    </div>
+
     <div class="status disconnected" id="status">
       Disconnected - Click "Connect to AI Assistant" to start
     </div>
 
-    <div class="card-display" id="cardDisplay">
-      <div class="card-title" id="cardTitle">Appointment Preparation Guide</div>
-      <div id="cardContent"></div>
-    </div>
-
-    <div class="logs" id="logs">
+    <!-- Logs Section -->
+    <div id="logs" class="logs">
       <div class="log-entry">
         <strong>Welcome!</strong> This is the Voice Multi-Agent Assistant.
         <br>• Voice Mode: Speak about your medical appointments and get personalized preparation guidance
         <br>• Text Mode: Type your appointment details for structured responses
         <br><br><strong>Try saying:</strong> "I have an appointment with Dr. Smith next week for chest pain"
       </div>
+    </div>
+
+    <!-- Card Display (Modal Style) -->
+    <div id="cardDisplay" class="card-display">
+      <div class="card-header">
+        <h3 id="cardTitle" class="card-title">Appointment Preparation Guide</h3>
+        <button class="card-close" onclick="document.getElementById('cardDisplay').classList.remove('active')">&times;</button>
+      </div>
+      <div id="cardContent" class="card-content"></div>
     </div>
   </div>
 
@@ -436,6 +554,51 @@
     let isProcessingResponse = false;
     let responseBuffer = null;
     let lastTranscriptTime = 0;
+    let thinkingTimeout = null;
+    let streamingTranscriptElement = null;
+
+    // Professional logging utility
+    const ConversationLogger = {
+      logPrefix: '[Conversation]',
+      
+      userInput: function(text, type = 'voice') {
+        console.log(`${this.logPrefix} User input received:`, {
+          type: type,
+          content: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+          length: text.length,
+          timestamp: new Date().toISOString()
+        });
+      },
+      
+      agentResponse: function(response, hasCard = false) {
+        console.log(`${this.logPrefix} Agent response:`, {
+          spoken_length: response.length,
+          has_card: hasCard,
+          timestamp: new Date().toISOString()
+        });
+      },
+      
+      cardDisplayed: function(cardData) {
+        console.log(`${this.logPrefix} Card displayed:`, {
+          title: cardData.title,
+          preparation_items: cardData.preparation_items?.length || 0,
+          questions: cardData.questions_to_ask?.length || 0,
+          timestamp: new Date().toISOString()
+        });
+      },
+      
+      flowState: function(state, details = {}) {
+        console.log(`${this.logPrefix} Flow state:`, {
+          state: state,
+          ...details,
+          timestamp: new Date().toISOString()
+        });
+      },
+
+      error: function(component, error) {
+        console.error(`${this.logPrefix} Error in ${component}:`, error);
+      }
+    };
 
     function setMode(mode) {
       currentMode = mode;
@@ -463,12 +626,13 @@
       let displayMessage = message;
       let actualContent = message;
       
-      // For AI responses, separate the emoji/prefix from the content
+      // For AI responses, separate the prefix from the content and log professionally
       if (message.includes('🤖 AI Response: ')) {
         const parts = message.split('🤖 AI Response: ');
         if (parts.length > 1) {
-          displayMessage = '🤖 AI Response: ';
+          displayMessage = 'AI Response: ';
           actualContent = parts[1];
+          ConversationLogger.agentResponse(actualContent);
         }
       }
       
@@ -500,10 +664,50 @@
     function formatConversationText(text) {
       if (!text || typeof text !== 'string') return text;
       
-      // Clean up the text first - remove excessive whitespace and normalize
+      // First, check if marked library is available
+      if (typeof marked !== 'undefined') {
+        try {
+          // Configure marked for safe HTML rendering
+          marked.setOptions({
+            breaks: true, // Convert line breaks to <br>
+            sanitize: false, // We trust our AI responses
+            smartypants: true, // Smart quotes and dashes
+            gfm: true, // GitHub Flavored Markdown
+          });
+          
+          // Clean up the text first
+          let cleaned = text
+            .replace(/\r\n/g, '\n')  // Normalize line endings
+            .replace(/\n\s*\n\s*\n/g, '\n\n')  // Remove triple+ newlines
+            .trim();
+          
+          // Convert common bullet formats to Markdown lists
+          cleaned = cleaned
+            .replace(/\n• /g, '\n* ')  // Convert • to *
+            .replace(/\n- /g, '\n* ')  // Convert - to *
+            .replace(/^\* /gm, '* ')   // Ensure lists start properly
+            .replace(/^([^*\n])/gm, '\n$1'); // Add spacing before non-list items
+          
+          // Parse with marked
+          const html = marked.parse(cleaned);
+          
+          // Clean up the generated HTML
+          return html
+            .replace(/^\s*<p>\s*<\/p>\s*/g, '') // Remove empty paragraphs at start
+            .replace(/\s*<p>\s*<\/p>\s*$/g, '') // Remove empty paragraphs at end
+            .replace(/<p>\s*<\/p>/g, '')        // Remove empty paragraphs anywhere
+            .trim();
+            
+        } catch (e) {
+          console.warn('[Markdown] Parsing failed, using fallback formatting:', e);
+          // Fall through to basic formatting
+        }
+      }
+      
+      // Fallback: Basic formatting (original implementation)
       let cleaned = text
-        .replace(/\r\n/g, '\n')  // Normalize line endings
-        .replace(/\n\s*\n\s*\n/g, '\n\n')  // Remove triple+ newlines
+        .replace(/\r\n/g, '\n')
+        .replace(/\n\s*\n\s*\n/g, '\n\n')
         .trim();
       
       // Handle bold text formatting (**text** to <strong>text</strong>)
@@ -514,7 +718,7 @@
       let formattedSections = [];
       
       for (let section of sections) {
-        if (!section.trim()) continue; // Skip empty sections
+        if (!section.trim()) continue;
         
         // Check if this section contains bullet points
         if (section.includes('\n• ') || section.includes('\n* ') || section.includes('\n- ')) {
@@ -525,23 +729,19 @@
           
           for (let line of lines) {
             line = line.trim();
-            if (!line) continue; // Skip empty lines
+            if (!line) continue;
             
             if (line.startsWith('• ') || line.startsWith('* ') || line.startsWith('- ')) {
               inList = true;
-              // Remove the bullet and add as list item
               let itemText = line.replace(/^[•\*\-]\s*/, '');
               listItems.push(`<li>${itemText}</li>`);
             } else if (!inList) {
               beforeList.push(line);
             } else {
-              // Text after bullets - could be continuation or new paragraph
               if (line.startsWith('• ') || line.startsWith('* ') || line.startsWith('- ')) {
                 let itemText = line.replace(/^[•\*\-]\s*/, '');
                 listItems.push(`<li>${itemText}</li>`);
               } else {
-                // This might be continuation of previous item or new paragraph
-                // For now, treat as new paragraph after list
                 if (listItems.length > 0) {
                   formattedSections.push(
                     (beforeList.length > 0 ? `<p>${beforeList.join(' ')}</p>` : '') +
@@ -555,7 +755,6 @@
             }
           }
           
-          // Add remaining content
           let result = '';
           if (beforeList.length > 0) {
             result += `<p>${beforeList.join(' ')}</p>`;
@@ -567,7 +766,6 @@
           if (result) formattedSections.push(result);
           
         } else {
-          // Regular paragraph - no bullets
           formattedSections.push(`<p>${section.trim()}</p>`);
         }
       }
@@ -605,10 +803,11 @@
         if (event.data instanceof ArrayBuffer) {
           // Handle binary audio data (prioritize this like call-center project)
           try {
+            hideThinkingIndicator(); // Hide thinking indicator when AI starts speaking
             await playAudio(event.data);
             showAudioIndicator();
           } catch (e) {
-            console.error("Failed to play audio:", e);
+            console.error("[Audio] Playback failed:", e);
             addLog(`Audio playback error: ${e.message}`, "error");
           }
         } else if (typeof event.data === "string") {
@@ -638,7 +837,11 @@
             addLog(`Raw message: ${event.data}`, "received");
           }
         } else {
-          console.log("Unknown message type:", event.data);
+          console.log("[WebSocket] Unknown message type received:", {
+            type: typeof event.data,
+            data: event.data,
+            timestamp: new Date().toISOString()
+          });
         }
       };
 
@@ -650,11 +853,15 @@
         document.getElementById("startVoiceBtn").disabled = true;
         document.getElementById("stopVoiceBtn").disabled = true;
         readyMessageShown = false; // Reset flag for next connection
+        
+        // Clean up indicators
+        hideThinkingIndicator();
+        hideStreamingTranscript();
       };
 
       socket.onerror = (err) => {
         addLog("WebSocket connection error", "error");
-        console.error("WebSocket error:", err);
+        console.error("[WebSocket] Connection error:", err);
       };
     }
 
@@ -669,6 +876,12 @@
 
     function handleTextMessage(data) {
       const type = data.type || 'unknown';
+      console.log('[WebSocket] Message received:', { 
+        type: type, 
+        session: data.session_id || 'unknown',
+        keys: Object.keys(data),
+        timestamp: new Date().toISOString()
+      });
       
       switch (type) {
         case 'ready':
@@ -679,6 +892,7 @@
           break;
         case 'orchestration_response':
           // Handle multi-agent response - buffer it to prevent flickering
+          hideThinkingIndicator(); // Hide thinking indicator when response starts
           isProcessingResponse = true;
           responseBuffer = data;
           
@@ -702,21 +916,38 @@
           // Handle card data from voice orchestration
           if (data.payload && !isProcessingResponse) {
             displayCard(data.payload);
-            // Only log once when card is first displayed
+            // Log card display professionally
             if (!document.getElementById('cardDisplay').classList.contains('active')) {
-              addLog(`📋 Generated appointment preparation checklist`, "received");
+              ConversationLogger.cardDisplayed(data.payload);
+              addLog(`Generated appointment preparation checklist`, "received");
             }
+          }
+          break;
+        case 'ai_response':
+          // Log AI responses immediately in conversation log
+          if (data.text && data.text.trim()) {
+            addLog(`🤖 AI Response: ${data.text.trim()}`, "voice");
           }
           break;
         case 'echo':
           addLog(`Echo: ${data.text.replace('Echo: ', '')}`, "received");
           break;
         case 'Transcription':
-          // Debounce transcript messages to reduce flickering during speech synthesis
-          const currentTime = Date.now();
-          if (!isProcessingResponse && (currentTime - lastTranscriptTime) > 500) {
-            addLog(`🤖 AI Response: ${data.text}`, "voice");
-            lastTranscriptTime = currentTime;
+          // Handle streaming transcription for real-time feedback
+          hideThinkingIndicator(); // Hide thinking when transcription starts
+          
+          if (data.text && data.text.trim()) {
+            // Check if this is a partial or final transcript
+            const isPartial = data.partial !== false; // Default to partial unless explicitly final
+            const transcriptText = data.text.trim();
+            
+            // Update or create streaming transcript display
+            updateStreamingTranscript(transcriptText, isPartial);
+            
+            // Only log final transcripts to avoid spam
+            if (!isPartial) {
+              addLog(`🤖 AI Response: ${transcriptText}`, "voice");
+            }
           }
           break;
         case 'error':
@@ -832,8 +1063,12 @@
         };
         
         socket.send(JSON.stringify(payload));
-        addLog(`📤 Sent: ${message}`, "sent");
+        ConversationLogger.userInput(message, 'text');
+        addLog(`Sent: ${message}`, "sent");
         input.value = '';
+        
+        // Show thinking indicator for text messages too
+        showThinkingIndicator();
       }
     }
 
@@ -847,7 +1082,7 @@
           workletNode = new AudioWorkletNode(audioContext, 'ring-buffer-processor');
           workletNode.connect(audioContext.destination);
         } catch (e) {
-          console.warn("AudioWorklet not available, using fallback:", e);
+          console.warn("[Audio] WorkletNode unavailable, using fallback processor:", e);
         }
         
         addLog("Audio context initialized", "voice");
@@ -918,6 +1153,9 @@
       document.getElementById("stopVoiceBtn").disabled = true;
       
       addLog("🛑 Voice recording stopped", "voice");
+      
+      // Start thinking timer when user stops speaking
+      startThinkingTimer();
     }
 
     function float32ToInt16(buffer) {
@@ -964,7 +1202,7 @@
           source.start();
         }
       } catch (e) {
-        console.error("Error playing audio:", e);
+        console.error("[Audio] Audio playback error:", e);
         addLog(`Audio playback error: ${e.message}`, "error");
       }
     }
@@ -977,6 +1215,95 @@
       }, 2000);
     }
 
+    function showThinkingIndicator() {
+      const thinkingIndicator = document.getElementById('thinkingIndicator');
+      thinkingIndicator.classList.add('active');
+      addLog("🤔 AI is analyzing your request...", "voice");
+    }
+
+    function hideThinkingIndicator() {
+      const thinkingIndicator = document.getElementById('thinkingIndicator');
+      thinkingIndicator.classList.remove('active');
+      if (thinkingTimeout) {
+        clearTimeout(thinkingTimeout);
+        thinkingTimeout = null;
+      }
+    }
+
+    // Initialize marked library settings when page loads
+    function initializeMarkdown() {
+      if (typeof marked !== 'undefined') {
+        marked.setOptions({
+          breaks: true,
+          sanitize: false,
+          smartypants: true,
+          gfm: true,
+          renderer: new marked.Renderer()
+        });
+        
+        // Custom renderer for better styling
+        const renderer = new marked.Renderer();
+        renderer.list = function(body, ordered) {
+          const type = ordered ? 'ol' : 'ul';
+          return `<${type} style="margin: 8px 0; padding-left: 20px;">${body}</${type}>`;
+        };
+        renderer.listitem = function(text) {
+          return `<li style="margin: 3px 0; line-height: 1.4;">${text}</li>`;
+        };
+        
+        marked.setOptions({ renderer });
+        addLog("✅ Enhanced Markdown formatting enabled", "info");
+      } else {
+        addLog("⚠️ Markdown library not loaded, using basic formatting", "info");
+      }
+    }
+
+    function startThinkingTimer() {
+      // Show thinking indicator after 1 second of no activity (user stopped speaking)
+      if (thinkingTimeout) {
+        clearTimeout(thinkingTimeout);
+      }
+      
+      thinkingTimeout = setTimeout(() => {
+        if (!isProcessingResponse) {
+          showThinkingIndicator();
+        }
+      }, 1000);
+    }
+
+    function updateStreamingTranscript(text, isPartial = true) {
+      const streamingTranscript = document.getElementById('streamingTranscript');
+      
+      if (!text || text.trim() === '') {
+        hideStreamingTranscript();
+        return;
+      }
+      
+      // Format the transcript text with markdown
+      const formattedText = formatConversationText(text);
+      
+      // Update the transcript content
+      streamingTranscript.innerHTML = formattedText;
+      
+      // Show the element and update its state
+      streamingTranscript.classList.add('active');
+      
+      if (isPartial) {
+        streamingTranscript.classList.add('partial');
+      } else {
+        streamingTranscript.classList.remove('partial');
+        // Hide after final transcript is shown for a moment
+        setTimeout(() => {
+          hideStreamingTranscript();
+        }, 2000);
+      }
+    }
+
+    function hideStreamingTranscript() {
+      const streamingTranscript = document.getElementById('streamingTranscript');
+      streamingTranscript.classList.remove('active', 'partial');
+    }
+
     // Allow Enter key to send message in text mode
     document.getElementById('messageInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -984,8 +1311,11 @@
       }
     });
 
-    // Initialize in voice mode
-    setMode('voice');
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeMarkdown();
+      setMode('voice');
+    });
   </script>
 </body>
 </html>

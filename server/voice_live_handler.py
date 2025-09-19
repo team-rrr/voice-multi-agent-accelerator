@@ -12,8 +12,12 @@ from typing import Optional
 
 from websockets.asyncio.client import connect as ws_connect
 from websockets.typing import Data
+from logging_config import ConversationFlowLogger, setup_professional_logging
 
+# Set up professional logging
+setup_professional_logging(level="INFO")
 logger = logging.getLogger(__name__)
+flow_logger = ConversationFlowLogger(__name__)
 
 
 def session_config():
@@ -21,7 +25,7 @@ def session_config():
     return {
         "type": "session.update",
         "session": {
-            "instructions": "You are a Voice Multi-Agent Assistant that helps users prepare for medical appointments. When connecting, say: 'Voice Multi-Agent Assistant is ready! You can start speaking to get personalized appointment preparation help.'",
+            "instructions": "You are a text-to-speech service. Only synthesize the exact text provided to you - do not generate additional content or responses. When connecting, say: 'Voice Multi-Agent Assistant is ready! You can start speaking to get personalized appointment preparation help.'",
             "turn_detection": {
                 "type": "azure_semantic_vad", 
                 "threshold": 0.3,
@@ -34,7 +38,7 @@ def session_config():
             "voice": {
                 "name": "en-US-Ava:DragonHDLatestNeural",
                 "type": "azure-standard", 
-                "temperature": 0.8,
+                "temperature": 0.1,
             },
             "input_audio_transcription": {
                 "model": "whisper-1"
@@ -85,7 +89,7 @@ class VoiceLiveHandler:
 
         try:
             self.ws = await ws_connect(url, additional_headers=headers)
-            logger.info("✅ Connected to Voice Live API")
+            logger.info("Voice Live API connection established successfully")
 
             # Send initial session configuration
             await self._send_json(session_config())
@@ -106,7 +110,7 @@ class VoiceLiveHandler:
         """Sets up incoming client WebSocket."""
         self.incoming_websocket = socket
         self.is_raw_audio = is_raw_audio
-        logger.info(f"Initialized client WebSocket (raw_audio={is_raw_audio})")
+        logger.info(f"Client WebSocket initialized - Audio format: {'raw' if is_raw_audio else 'processed'}")
 
     async def audio_to_voicelive(self, audio_b64: str):
         """Queues audio data to be sent to Voice Live API."""
@@ -140,27 +144,25 @@ class VoiceLiveHandler:
                 match event_type:
                     case "session.created":
                         session_id = event.get("session", {}).get("id")
-                        logger.info(f"Voice Live session created: {session_id}")
+                        logger.info(f"Voice Live session created - Session ID: {session_id}")
 
                     case "input_audio_buffer.cleared":
-                        logger.debug("Input audio buffer cleared")
+                        logger.info("Audio buffer cleared for conversation reset")
 
                     case "input_audio_buffer.speech_started":
-                        logger.info(
-                            f"Speech started at {event.get('audio_start_ms')} ms"
-                        )
+                        logger.info(f"Speech detection started - Audio start: {event.get('audio_start_ms')} ms")
                         await self.stop_audio()
 
                     case "input_audio_buffer.speech_stopped":
-                        logger.info("Speech stopped")
+                        logger.info("Speech detection stopped - Processing user input")
 
                     case "conversation.item.input_audio_transcription.completed":
                         transcript = event.get("transcript")
-                        logger.info(f"User said: {transcript}")
+                        logger.info(f"User transcription completed - Text: '{transcript}'")
                         
                         # Skip processing if there's already an active response
                         if self.is_response_active:
-                            logger.info("Skipping transcription processing - response already active")
+                            logger.info("Transcription processing skipped - Active response in progress")
                             return
                         
                         if self.on_final_transcription:
@@ -175,10 +177,16 @@ class VoiceLiveHandler:
                                 
                                 # This calls the run_orchestration function
                                 response = await self.on_final_transcription(transcript)
-                                logger.info("Orchestration response received, sending to Voice Live...")
+                                logger.info("Orchestrator processing completed - Sending response to Voice Live API")
 
                                 # Send the spoken text part FIRST to be synthesized by Voice Live
                                 await self.text_to_voicelive(response.spoken)
+                                
+                                # Also send the AI response to client for conversation logging
+                                await self.send_message({
+                                    "type": "ai_response", 
+                                    "text": response.spoken
+                                })
                                 
                                 # Schedule card to be sent when response completes (if card exists)
                                 if response.card:
@@ -259,6 +267,14 @@ class VoiceLiveHandler:
         """Sends data back to client WebSocket."""
         try:
             if self.incoming_websocket:
+                # Log outgoing messages (truncate audio data for readability)
+                if isinstance(message, dict):
+                    msg_type = message.get("type", "unknown")
+                    if msg_type == "card":
+                        logger.info(f"🔔 Sending to client: type={msg_type}, payload keys={list(message.get('payload', {}).keys())}")
+                    elif msg_type != "AudioData":  # Don't spam with audio messages
+                        logger.info(f"📤 Sending to client: type={msg_type}")
+                        
                 # Check if message is bytes (audio data)
                 if isinstance(message, bytes):
                     await self.incoming_websocket.send_bytes(message)
@@ -322,28 +338,29 @@ class VoiceLiveHandler:
             logger.exception("Error processing next response")
             
     async def _send_text_immediately(self, text: str):
-        """Immediately sends text to Voice Live API."""
+        """Immediately sends text to Voice Live API for text-to-speech synthesis."""
         try:
             self.is_response_active = True
             
-            # Create a conversation item with user text
-            user_message = {
+            # Create an assistant message (not user message) to be synthesized directly
+            assistant_message = {
                 "type": "conversation.item.create",
                 "item": {
                     "type": "message",
-                    "role": "user",
+                    "role": "assistant",
                     "content": [
                         {
-                            "type": "input_text",
+                            "type": "text",
                             "text": text
                         }
                     ]
                 }
             }
-            await self._send_json(user_message)
-            # Request response generation
+            await self._send_json(assistant_message)
+            
+            # Request response generation to synthesize the assistant message
             await self._send_json({"type": "response.create"})
-            logger.info(f"Sent text to Voice Live: {text}")
+            logger.info(f"Sent text to Voice Live for TTS: {text}")
         except Exception:
             self.is_response_active = False
             logger.exception("Error sending text immediately to Voice Live API")
@@ -353,11 +370,12 @@ class VoiceLiveHandler:
         try:
             # Only send card if we still have a websocket connection
             if self.incoming_websocket:
+                logger.info(f"Sending card message: type=card, payload={card_payload}")
                 await self.send_message({
                     "type": "card",
                     "payload": card_payload
                 })
-                logger.info("Card sent immediately after speech response completion")
+                logger.info("Card delivery completed - Sent immediately after speech response")
             else:
                 logger.warning("Cannot send card - websocket connection lost")
             
