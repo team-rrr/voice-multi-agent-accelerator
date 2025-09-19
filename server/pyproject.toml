@@ -1,7 +1,7 @@
 [project]
 name = "voice-multi-agent-accelerator-backend"
 version = "0.1.0"
-description = "Backend service for Voice Multi-Agent Accelerator"
+description = "Backend service for MedOrchestrator"
 authors = [ { name = "Team", email = "team@example.com" } ]
 requires-python = ">=3.12"
 dependencies = [

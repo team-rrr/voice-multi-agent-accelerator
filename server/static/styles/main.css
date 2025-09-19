@@ -109,7 +109,7 @@ footer {
 .layout {
   display: flex;
   flex-direction: row;
-  min-height: calc(100vh - 64px - 48px); /* header/footer height estimate */
+  min-height: calc(100vh - 79px - 86px); /* header/footer height estimate */
 }
 
 body {

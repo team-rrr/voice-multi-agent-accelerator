@@ -1,4 +1,4 @@
-# Voice Multi-Agent Accelerator: Agent Management UI & File Structure
+# MedOrchestrator: Agent Management UI & File Structure
 
 ## Goal
 Imitate AI Foundry's agent management experience by adding CRUD (Create, Read, Update, Delete) pages for agents. Agents can be managed in the UI and used in the conversation page.

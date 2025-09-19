@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 def session_config():
-    """Returns the default session configuration for Voice Multi-Agent Assistant."""
+    """Returns the default session configuration for MedOrchestrator."""
     return {
         "type": "session.update",
         "session": {
-            "instructions": "You are a Voice Multi-Agent Assistant that helps users prepare for medical appointments. When connecting, say: 'Voice Multi-Agent Assistant is ready! You can start speaking to get personalized appointment preparation help.'",
+            "instructions": "You are a MedOrchestrator that helps users prepare for medical appointments. When connecting, say: 'MedOrchestrator is ready! You can start speaking to get personalized appointment preparation help.'",
             "turn_detection": {
                 "type": "azure_semantic_vad",
                 "threshold": 0.3,

@@ -54,20 +54,25 @@ def get_agent_prompt(name: str):
 def get_tool_prompt(agent: str, function: str):
     return Response(content=load_tool_prompt(agent, function), media_type="text/plain")
 
-# Save agent markdown
-@app.post("/api/agent/{name}")
-def save_agent_prompt(name: str, body: str = None):
-    # AGENT_PROMPTS_DIR already imported at top
-    path = os.path.join(AGENT_PROMPTS_DIR, f"{name}.md")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(body or "")
-    return {"status": "ok"}
 
+# Save agent prompt (agents/)
 @app.post("/api/agent/{name}")
 async def save_agent_prompt(name: str, request: Request):
-    # AGENT_PROMPTS_DIR already imported at top
+    from plugins.utils import AGENTS_DIR
     body = await request.body()
-    path = os.path.join(AGENT_PROMPTS_DIR, f"{name}.txt")
+    path = os.path.join(AGENTS_DIR, f"{name}.md")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(body.decode("utf-8"))
+    return {"status": "ok"}
+
+# Save tool prompt (tools/{agent}/{function})
+@app.post("/api/tool/{agent}/{function}")
+async def save_tool_prompt(agent: str, function: str, request: Request):
+    from plugins.utils import TOOLS_DIR
+    body = await request.body()
+    agent_dir = os.path.join(TOOLS_DIR, agent)
+    os.makedirs(agent_dir, exist_ok=True)
+    path = os.path.join(agent_dir, f"{function}.md")
     with open(path, "w", encoding="utf-8") as f:
         f.write(body.decode("utf-8"))
     return {"status": "ok"}
@@ -107,7 +112,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
         # Send ready message to client
         await websocket.send_text(json.dumps({
             "type": "ready",
-            "text": "Voice Multi-Agent Assistant is ready! You can start speaking to get personalized appointment preparation help."
+            "text": "MedOrchestrator is ready! You can start speaking to get personalized appointment preparation help."
         }))
 
         # Message handling loop

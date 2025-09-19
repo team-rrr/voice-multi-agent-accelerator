@@ -1,4 +1,4 @@
-# Voice Multi-Agent Accelerator
+# MedOrchestrator
 
 *Azure Sample accelerator for Microsoft Hackathon 2025 - Real-time voice interaction system with complete multi-agent orchestration.*
 
