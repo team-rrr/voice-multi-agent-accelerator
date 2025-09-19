@@ -23,7 +23,7 @@ def session_config():
         "session": {
             "instructions": "You are a Voice Multi-Agent Assistant that helps users prepare for medical appointments. When connecting, say: 'Voice Multi-Agent Assistant is ready! You can start speaking to get personalized appointment preparation help.'",
             "turn_detection": {
-                "type": "azure_semantic_vad", 
+                "type": "azure_semantic_vad",
                 "threshold": 0.3,
                 "prefix_padding_ms": 200,
                 "silence_duration_ms": 200,
@@ -33,7 +33,7 @@ def session_config():
             "input_audio_echo_cancellation": {"type": "server_echo_cancellation"},
             "voice": {
                 "name": "en-US-Ava:DragonHDLatestNeural",
-                "type": "azure-standard", 
+                "type": "azure-standard",
                 "temperature": 0.8,
             },
             "input_audio_transcription": {
@@ -57,7 +57,7 @@ class VoiceLiveHandler:
         self.incoming_websocket = None
         self.is_raw_audio = True
         self.on_final_transcription = on_final_transcription
-        
+
         # Debug log to confirm orchestration callback is set
         if self.on_final_transcription:
             logger.info("VoiceLiveHandler initialized WITH multi-agent orchestration callback")
@@ -91,9 +91,9 @@ class VoiceLiveHandler:
             # Start background tasks
             asyncio.create_task(self._receiver_loop())
             self.send_task = asyncio.create_task(self._sender_loop())
-            
+
             logger.info("Voice Live API handler initialized successfully")
-            
+
         except Exception as e:
             logger.error(f"Failed to connect to Voice Live API: {e}")
             raise
@@ -153,17 +153,17 @@ class VoiceLiveHandler:
                     case "conversation.item.input_audio_transcription.completed":
                         transcript = event.get("transcript")
                         logger.info(f"User said: {transcript}")
-                        
+
                         if self.on_final_transcription:
                             # A callback is defined, so run the full orchestration
                             logger.info("Final transcription received. Calling orchestrator...")
-                            
+
                             try:
                                 # Skip orchestration for very short or unclear inputs
                                 if len(transcript.strip()) < 3:
                                     logger.info("Skipping orchestration for very short input")
                                     return
-                                
+
                                 # This calls the run_orchestration function from Day 3
                                 response = await self.on_final_transcription(transcript)
                                 logger.info("Orchestration response received, sending to Voice Live...")
@@ -171,22 +171,32 @@ class VoiceLiveHandler:
                                 # Send the spoken text part to be synthesized by Voice Live
                                 await self.text_to_voicelive(response.spoken)
 
-                                # Send the structured card data only for checklist-related queries
-                                if any(keyword in transcript.lower() for keyword in ["appointment", "checklist", "prepare", "bring", "doctor"]):
-                                    await self.send_message({
-                                        "type": "card",
-                                        "payload": response.card
-                                    })
-                                    logger.info("Multi-agent response with card sent successfully")
-                                else:
-                                    logger.info("Multi-agent response sent (no card - not checklist-related)")
-                                
+                                # Build agent/function call trace for frontend logging
+                                agent_trace = [
+                                    {"name": "CaregiverPlugin.InfoAgent", "function": "InfoAgent"},
+                                    {"name": "CaregiverPlugin.PatientContextAgent", "function": "PatientContextAgent"},
+                                    {"name": "CardiologyAgent.extract_symptoms", "function": "extract_symptoms"},
+                                    {"name": "CardiologyAgent.recommend_tests", "function": "recommend_tests"},
+                                    {"name": "CaregiverPlugin.ActionAgent", "function": "ActionAgent"}
+                                ]
+
+                                # Send orchestration_response with agent trace and card data
+                                await self.send_message({
+                                    "type": "orchestration_response",
+                                    "spoken_response": response.spoken,
+                                    "card_data": {
+                                        **response.card,
+                                        "agents": agent_trace
+                                    }
+                                })
+                                logger.info("Multi-agent orchestration_response sent with agent trace and card data")
+
                             except Exception as e:
                                 logger.error(f"Orchestration failed: {e}")
                                 # Fallback to a helpful message
                                 await self.text_to_voicelive("I apologize, but I'm having trouble processing your request right now. Please try again.")
                                 await self.send_message({
-                                    "type": "error", 
+                                    "type": "error",
                                     "text": f"Orchestration error: {str(e)}"
                                 })
 
