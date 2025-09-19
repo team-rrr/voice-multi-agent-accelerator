@@ -14,13 +14,15 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from voice_live_handler import VoiceLiveHandler
 from orchestrator import run_orchestration, ChecklistResponse
+from logging_config import ConversationFlowLogger, setup_professional_logging
 
 # Load environment variables
 load_dotenv(dotenv_path='../.env')
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure professional logging
+setup_professional_logging(level="INFO")
 logger = logging.getLogger(__name__)
+flow_logger = ConversationFlowLogger(__name__)
 
 app = FastAPI(title="Voice Multi-Agent Echo Bot", version="0.1.0")
 
@@ -35,7 +37,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
     
     # Generate unique session ID for this WebSocket connection
     session_id = str(uuid.uuid4())
-    logger.info(f"Voice Multi-Agent WebSocket connection accepted with session ID: {session_id}")
+    flow_logger.conversation_start(session_id, "voice_websocket")
 
     # Get configuration
     config = {
@@ -80,7 +82,10 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                 # Receive message from client
                 message = await websocket.receive()
                 
-                if message["type"] == "websocket.receive":
+                if message["type"] == "websocket.disconnect":
+                    logger.info("Client initiated WebSocket disconnect")
+                    break
+                elif message["type"] == "websocket.receive":
                     # Handle different message types
                     if "text" in message:
                         # Handle ping messages for connection health checks
@@ -96,9 +101,12 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                     elif "bytes" in message:
                         # Binary audio data
                         audio_bytes = message["bytes"]
-                        logger.debug(f"Received {len(audio_bytes)} bytes of audio data")
+                        logger.debug(f"Audio data received - Size: {len(audio_bytes)} bytes")
                         await handler.web_to_voicelive(audio_bytes)
                         
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected")
+                break
             except Exception as e:
                 logger.error(f"Error processing message: {e}")
                 break
@@ -125,13 +133,13 @@ async def websocket_text_endpoint(websocket: WebSocket):
     
     # Generate unique session ID for this WebSocket connection
     session_id = str(uuid.uuid4())
-    logger.info(f"Text WebSocket connection accepted with session ID: {session_id}")
+    flow_logger.conversation_start(session_id, "text_websocket")
 
     try:
         while True:
             # Receive message from client
             data = await websocket.receive_text()
-            logger.info(f"Received text message: {data}")
+            flow_logger.user_message(session_id, data, "text")
             
             try:
                 # Try to parse as JSON
@@ -150,7 +158,7 @@ async def websocket_text_endpoint(websocket: WebSocket):
                             "card": orchestration_response.card
                         }
                         await websocket.send_text(json.dumps(response))
-                        logger.info(f"Orchestrated response sent for session {session_id}")
+                        flow_logger.agent_response(session_id, "orchestrator", len(response.spoken), bool(response.card))
                     else:
                         # Empty text - send helpful prompt
                         response = {

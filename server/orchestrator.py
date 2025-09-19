@@ -8,8 +8,12 @@ from typing import List, Dict, Optional
 import logging
 
 from plugins import CaregiverPlugin
+from logging_config import ConversationFlowLogger, setup_professional_logging
 
+# Set up professional logging
+setup_professional_logging(level="INFO")
 logger = logging.getLogger(__name__)
+flow_logger = ConversationFlowLogger(__name__)
 
 class ConversationState:
     """Unified state management for appointment preparation conversations."""
@@ -248,7 +252,7 @@ def should_show_card(query: str, agent_response: str, state: ConversationState =
 
 def generate_dynamic_card(checklist_json: str, context_json: str, query: str = "") -> dict:
     """Generate card data from structured agent responses."""
-    logger.info(f"🃏 Card Generation - Input Data: checklist={checklist_json[:100]}..., context={context_json[:100]}..., query={query}")
+    logger.info(f"Card generation started - Checklist length: {len(checklist_json)}, Context length: {len(context_json)}, Query: '{query[:50]}{'...' if len(query) > 50 else ''}'")
     
     try:
         # Parse structured agent responses
@@ -340,7 +344,7 @@ def generate_dynamic_card(checklist_json: str, context_json: str, query: str = "
         "helpful_links": helpful_links
     }
     
-    logger.info(f"🃏 Generated Card Data: {json.dumps(card_data, indent=2)}")
+    logger.info(f"Card generation completed - Title: {card_data['title']}, Items: {len(preparation_items)}, Questions: {len(questions_to_ask)}")
     return card_data
 
 def generate_dynamic_card_fallback(checklist: str, context: str, query: str = "") -> dict:
@@ -476,28 +480,28 @@ async def full_agent_flow_no_card(query: str, context: dict, conversation_state:
     if conversation_state is None:
         conversation_state = ConversationState()
         
-    logger.info("Running full multi-agent orchestration for information gathering...")
+    logger.info("Multi-agent orchestration started - Information gathering mode")
     
     # Step 1: Call InfoAgent to get the contextual checklist
     info_function = kernel.get_function("CaregiverPlugin", "InfoAgent")
     info_arguments = KernelArguments(query=query, conversation_state=conversation_state.to_json())
     checklist_result = await kernel.invoke(info_function, info_arguments)
     checklist_json = str(checklist_result)
-    logger.info(f"InfoAgent completed: {checklist_json[:100]}...")
+    logger.info(f"InfoAgent processing completed - Response length: {len(checklist_json)} characters")
     
     # Step 2: Call PatientContextAgent with user query for context-aware response
     context_function = kernel.get_function("CaregiverPlugin", "PatientContextAgent")
     context_arguments = KernelArguments(user_query=query, conversation_state=conversation_state.to_json())
     context_result = await kernel.invoke(context_function, context_arguments)
     patient_context_json = str(context_result)
-    logger.info(f"PatientContextAgent completed: {patient_context_json[:100]}...")
+    logger.info(f"PatientContextAgent processing completed - Response length: {len(patient_context_json)} characters")
     
     # Step 3: Call ActionAgent to create contextual response based on user query
     action_function = kernel.get_function("CaregiverPlugin", "ActionAgent")
     arguments = KernelArguments(checklist=checklist_json, context=patient_context_json, user_query=query, conversation_state=conversation_state.to_json())
     result = await kernel.invoke(action_function, arguments)
     action_json = str(result)
-    logger.info(f"ActionAgent completed: {action_json[:100]}...")
+    logger.info(f"ActionAgent processing completed - Response length: {len(action_json)} characters")
 
     # Extract spoken response from ActionAgent's enhanced structured output
     try:
@@ -518,28 +522,28 @@ async def full_agent_flow(query: str, conversation_state: ConversationState = No
     if conversation_state is None:
         conversation_state = ConversationState()
         
-    logger.info("Running full multi-agent orchestration...")
+    logger.info("Multi-agent orchestration started - Card generation mode")
     
     # Step 1: Call InfoAgent to get the contextual checklist
     info_function = kernel.get_function("CaregiverPlugin", "InfoAgent")
     info_arguments = KernelArguments(query=query, conversation_state=conversation_state.to_json())
     checklist_result = await kernel.invoke(info_function, info_arguments)
     checklist_json = str(checklist_result)
-    logger.info(f"InfoAgent completed: {checklist_json[:100]}...")
+    logger.info(f"InfoAgent processing completed - Response length: {len(checklist_json)} characters")
     
     # Step 2: Call PatientContextAgent with user query for context-aware response
     context_function = kernel.get_function("CaregiverPlugin", "PatientContextAgent")
     context_arguments = KernelArguments(user_query=query, conversation_state=conversation_state.to_json())
     context_result = await kernel.invoke(context_function, context_arguments)
     context_json = str(context_result)
-    logger.info(f"PatientContextAgent completed: {context_json[:100]}...")
+    logger.info(f"PatientContextAgent processing completed - Response length: {len(context_json)} characters")
     
     # Step 3: Call ActionAgent to create contextual response based on user query
     action_function = kernel.get_function("CaregiverPlugin", "ActionAgent")
     arguments = KernelArguments(checklist=checklist_json, context=context_json, user_query=query, conversation_state=conversation_state.to_json())
     result = await kernel.invoke(action_function, arguments)
     action_json = str(result)
-    logger.info(f"ActionAgent completed: {action_json[:100]}...")
+    logger.info(f"ActionAgent processing completed - Response length: {len(action_json)} characters")
 
     # Extract spoken response from ActionAgent's enhanced structured output
     try:
@@ -552,7 +556,7 @@ async def full_agent_flow(query: str, conversation_state: ConversationState = No
     card_payload = None
     if should_show_card(query, checklist_json, conversation_state):
         card_payload = generate_dynamic_card(checklist_json, context_json, query)
-        logger.info("Generated dynamic card from agent responses")
+        logger.info("Dynamic card generated from agent responses")
 
     return ChecklistResponse(spoken=spoken_response, card=card_payload)
 
@@ -615,27 +619,48 @@ async def run_orchestration(query: str, session_id: str = "default") -> Checklis
     
     # Classify the query intent
     intent = classify_intent(query)
-    logger.info(f"Classified query '{query}' intent as: {intent}")
+    flow_logger.orchestration_flow(session_id, intent, "intent_classification", state.completion_signals)
     
     if intent == "checklist_request":
-        # Start information gathering mode (no card yet)
-        state.mark_info_gathering_started()
+        # Check if user is specifically asking for a card/checklist to be shown
+        explicit_card_phrases = [
+            "show me a checklist", "create a checklist", "generate a checklist", 
+            "prepare a checklist", "make a checklist", "display a checklist",
+            "show me what to bring", "create a preparation guide", "give me a checklist"
+        ]
+        explicit_card_request = any(phrase in query.lower() for phrase in explicit_card_phrases)
         
-        # Get checklist and context info but don't generate card yet - pass conversation state
-        result = await full_agent_flow_no_card(query, state.get_conversation_context(), state)
-        
-        # Store the information for later card generation
-        state.store_agent_responses(
-            checklist=result.get("checklist", ""),
-            context=result.get("context", "")
-        )
-        
-        # Enforce single question rule and add continuation guidance
-        spoken_response = enforce_single_question(result["spoken"])
-        if "?" in spoken_response:
-            spoken_response += "\n\nOnce I have all the information I need, I'll prepare a comprehensive checklist for your appointment."
-        
-        return ChecklistResponse(spoken=spoken_response, card=None)
+        if explicit_card_request or is_completion_signal:
+            # User explicitly asked for a card or signaled completion - use full agent flow
+            state.mark_info_gathering_started()
+            result = await full_agent_flow(query, state)
+            return result
+        else:
+            # Start information gathering mode (no card yet)
+            state.mark_info_gathering_started()
+            
+            # Get checklist and context info but don't generate card yet - pass conversation state
+            result = await full_agent_flow_no_card(query, state.get_conversation_context(), state)
+            
+            # Store the information for later card generation
+            state.store_agent_responses(
+                checklist=result.get("checklist", ""),
+                context=result.get("context", "")
+            )
+            
+            # Enforce single question rule and add continuation guidance
+            spoken_text = result.get("spoken", "")
+            logger.info(f"Processing spoken response - Type: {type(spoken_text).__name__}, Length: {len(str(spoken_text))} characters")
+            
+            # Ensure spoken_text is a string
+            if not isinstance(spoken_text, str):
+                spoken_text = str(spoken_text)
+                
+            spoken_response = enforce_single_question(spoken_text)
+            if "?" in spoken_response:
+                spoken_response += "\n\nWhen you're ready, I can prepare a comprehensive checklist for your appointment."
+            
+            return ChecklistResponse(spoken=spoken_response, card=None)
         
     elif intent == "general_question":
         # Just InfoAgent for general medical questions - pass conversation state

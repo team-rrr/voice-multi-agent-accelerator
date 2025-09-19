@@ -466,6 +466,8 @@
       0%, 50% { opacity: 1; }
       51%, 100% { opacity: 0; }
     }
+
+
   </style>
 </head>
 <body>
@@ -519,18 +521,23 @@
       Disconnected - Click "Connect to AI Assistant" to start
     </div>
 
-    <div class="card-display" id="cardDisplay">
-      <div class="card-title" id="cardTitle">Appointment Preparation Guide</div>
-      <div id="cardContent"></div>
-    </div>
-
-    <div class="logs" id="logs">
+    <!-- Logs Section -->
+    <div id="logs" class="logs">
       <div class="log-entry">
         <strong>Welcome!</strong> This is the Voice Multi-Agent Assistant.
         <br>• Voice Mode: Speak about your medical appointments and get personalized preparation guidance
         <br>• Text Mode: Type your appointment details for structured responses
         <br><br><strong>Try saying:</strong> "I have an appointment with Dr. Smith next week for chest pain"
       </div>
+    </div>
+
+    <!-- Card Display (Modal Style) -->
+    <div id="cardDisplay" class="card-display">
+      <div class="card-header">
+        <h3 id="cardTitle" class="card-title">Appointment Preparation Guide</h3>
+        <button class="card-close" onclick="document.getElementById('cardDisplay').classList.remove('active')">&times;</button>
+      </div>
+      <div id="cardContent" class="card-content"></div>
     </div>
   </div>
 
@@ -549,6 +556,49 @@
     let lastTranscriptTime = 0;
     let thinkingTimeout = null;
     let streamingTranscriptElement = null;
+
+    // Professional logging utility
+    const ConversationLogger = {
+      logPrefix: '[Conversation]',
+      
+      userInput: function(text, type = 'voice') {
+        console.log(`${this.logPrefix} User input received:`, {
+          type: type,
+          content: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+          length: text.length,
+          timestamp: new Date().toISOString()
+        });
+      },
+      
+      agentResponse: function(response, hasCard = false) {
+        console.log(`${this.logPrefix} Agent response:`, {
+          spoken_length: response.length,
+          has_card: hasCard,
+          timestamp: new Date().toISOString()
+        });
+      },
+      
+      cardDisplayed: function(cardData) {
+        console.log(`${this.logPrefix} Card displayed:`, {
+          title: cardData.title,
+          preparation_items: cardData.preparation_items?.length || 0,
+          questions: cardData.questions_to_ask?.length || 0,
+          timestamp: new Date().toISOString()
+        });
+      },
+      
+      flowState: function(state, details = {}) {
+        console.log(`${this.logPrefix} Flow state:`, {
+          state: state,
+          ...details,
+          timestamp: new Date().toISOString()
+        });
+      },
+
+      error: function(component, error) {
+        console.error(`${this.logPrefix} Error in ${component}:`, error);
+      }
+    };
 
     function setMode(mode) {
       currentMode = mode;
@@ -576,12 +626,13 @@
       let displayMessage = message;
       let actualContent = message;
       
-      // For AI responses, separate the emoji/prefix from the content
+      // For AI responses, separate the prefix from the content and log professionally
       if (message.includes('🤖 AI Response: ')) {
         const parts = message.split('🤖 AI Response: ');
         if (parts.length > 1) {
-          displayMessage = '🤖 AI Response: ';
+          displayMessage = 'AI Response: ';
           actualContent = parts[1];
+          ConversationLogger.agentResponse(actualContent);
         }
       }
       
@@ -648,7 +699,7 @@
             .trim();
             
         } catch (e) {
-          console.warn('Markdown parsing failed, falling back to basic formatting:', e);
+          console.warn('[Markdown] Parsing failed, using fallback formatting:', e);
           // Fall through to basic formatting
         }
       }
@@ -756,7 +807,7 @@
             await playAudio(event.data);
             showAudioIndicator();
           } catch (e) {
-            console.error("Failed to play audio:", e);
+            console.error("[Audio] Playback failed:", e);
             addLog(`Audio playback error: ${e.message}`, "error");
           }
         } else if (typeof event.data === "string") {
@@ -786,7 +837,11 @@
             addLog(`Raw message: ${event.data}`, "received");
           }
         } else {
-          console.log("Unknown message type:", event.data);
+          console.log("[WebSocket] Unknown message type received:", {
+            type: typeof event.data,
+            data: event.data,
+            timestamp: new Date().toISOString()
+          });
         }
       };
 
@@ -806,7 +861,7 @@
 
       socket.onerror = (err) => {
         addLog("WebSocket connection error", "error");
-        console.error("WebSocket error:", err);
+        console.error("[WebSocket] Connection error:", err);
       };
     }
 
@@ -821,6 +876,12 @@
 
     function handleTextMessage(data) {
       const type = data.type || 'unknown';
+      console.log('[WebSocket] Message received:', { 
+        type: type, 
+        session: data.session_id || 'unknown',
+        keys: Object.keys(data),
+        timestamp: new Date().toISOString()
+      });
       
       switch (type) {
         case 'ready':
@@ -855,10 +916,17 @@
           // Handle card data from voice orchestration
           if (data.payload && !isProcessingResponse) {
             displayCard(data.payload);
-            // Only log once when card is first displayed
+            // Log card display professionally
             if (!document.getElementById('cardDisplay').classList.contains('active')) {
-              addLog(`📋 Generated appointment preparation checklist`, "received");
+              ConversationLogger.cardDisplayed(data.payload);
+              addLog(`Generated appointment preparation checklist`, "received");
             }
+          }
+          break;
+        case 'ai_response':
+          // Log AI responses immediately in conversation log
+          if (data.text && data.text.trim()) {
+            addLog(`🤖 AI Response: ${data.text.trim()}`, "voice");
           }
           break;
         case 'echo':
@@ -995,7 +1063,8 @@
         };
         
         socket.send(JSON.stringify(payload));
-        addLog(`📤 Sent: ${message}`, "sent");
+        ConversationLogger.userInput(message, 'text');
+        addLog(`Sent: ${message}`, "sent");
         input.value = '';
         
         // Show thinking indicator for text messages too
@@ -1013,7 +1082,7 @@
           workletNode = new AudioWorkletNode(audioContext, 'ring-buffer-processor');
           workletNode.connect(audioContext.destination);
         } catch (e) {
-          console.warn("AudioWorklet not available, using fallback:", e);
+          console.warn("[Audio] WorkletNode unavailable, using fallback processor:", e);
         }
         
         addLog("Audio context initialized", "voice");
@@ -1133,7 +1202,7 @@
           source.start();
         }
       } catch (e) {
-        console.error("Error playing audio:", e);
+        console.error("[Audio] Audio playback error:", e);
         addLog(`Audio playback error: ${e.message}`, "error");
       }
     }
