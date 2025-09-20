@@ -1,4 +1,4 @@
-# Troubleshooting Guide: Successful Provisioning & Deployment
+# Provision and Deployment Troubleshooting Guide
 
 This document captures the real issues encountered and the steps taken to achieve a successful `azd provision` and `azd deploy backend` for this accelerator.
 
@@ -25,6 +25,7 @@ AuthorizationFailed: The client '...' with object id '...' does not have authori
 ```
 
 **Root Cause:** Account lacked permission to create RBAC assignments (e.g. not Owner / User Access Administrator).
+
 **Resolution:** Manually assign roles to the User Assigned Managed Identity (UAMI), then disable automatic RBAC creation in templates.
 
 ### Manual Role Assignment Commands
@@ -57,7 +58,6 @@ azd env set createAcrPullAssignment false
 azd provision
 ```
 
-
 ---
 
 ## 2. RoleAssignmentExists Errors
@@ -69,6 +69,7 @@ RoleAssignmentExists: The role assignment already exists
 ```
 
 **Root Cause:** Template attempted to recreate a role already assigned manually.
+
 **Resolution:** Turned off role assignment modules via environment flags.
 
 ### Flags
@@ -94,7 +95,6 @@ RoleAssignmentExists: The role assignment already exists
 az acr create -g <rg-name> -n <acr-name> --sku Basic
 ```
 
-
 ---
 
 ## 4. Registry Name Length Validation
@@ -107,7 +107,6 @@ az acr create -g <rg-name> -n <acr-name> --sku Basic
 // Simplified logic now guarantees >=5 characters
 overrides: var containerRegistryName = take('${fallbackAcrBase}${generatedAcrBase}${uniqueSuffix}', 50)
 ```
-
 
 ---
 
@@ -142,7 +141,6 @@ azd provision
 azd deploy backend
 ```
 
-
 ---
 
 ## 7. Skipping RBAC Creation After Manual Fixes
@@ -159,7 +157,6 @@ Verify:
 ```pwsh
 azd env get-values
 ```
-
 
 ---
 
@@ -180,12 +177,12 @@ Expect:
 }
 ```
 
-
 ---
 
 ## 9. Replacing Placeholder Container Image (Planned)
 
 Current image: `mcr.microsoft.com/azuredocs/containerapps-helloworld:latest`.
+
 To use your app image:
 
 ```pwsh
@@ -194,6 +191,7 @@ az acr login --name ($acr.Split('.')[0])
 docker build -t $acr/backend:dev -f server/Dockerfile ./server
 docker push $acr/backend:dev
 ```
+
 Update in `infra/modules/containerapp.bicep`:
 
 ```bicep
@@ -205,7 +203,6 @@ Then:
 ```pwsh
 azd deploy backend
 ```
-
 
 ---
 
@@ -242,4 +239,12 @@ az containerapp logs show -g <rg> -n <container-app-name> --follow
 - Parameterize image tag & model selection.
 
 ---
+
+## Related Documents
+
+- [Voice Live API Race Condition Troubleshooting](./VOICE_LIVE_API_RACE_CONDITION.md)
+- [Architecture Overview](../README.md#architecture)
+
+---
+
 If you encounter a new error not covered here, capture the full message and run a `what-if` to see pending changes before retrying.

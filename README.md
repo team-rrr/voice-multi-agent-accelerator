@@ -16,7 +16,7 @@
 - [Development Workflow](#development-workflow)
 - [Project Status](#project-status)
 - [Deployment](#deploying-infrastructure-azure-developer-cli)
-- [Troubleshooting](#rbac-troubleshooting)
+- [Troubleshooting](#troubleshooting)
 - [Monitoring & Debugging](#monitoring--debugging)
 
 ## Project Overview
@@ -225,7 +225,7 @@ voice-multi-agent-accelerator/
 
 ## Multi-Agent Architecture - FULLY IMPLEMENTED
 
-### Current Implementation: Healthcare Caregiver Assistant
+### Current Implementation: Healthcare Caregiver Assistant ✅ COMPLETED
 
 **Complete Semantic Kernel Integration:**
 
@@ -347,14 +347,15 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 
 ## Project Status
 
-### Core Foundation - IMPLEMENTED
+### ✅ COMPLETED: Core Foundation
 
-- Azure Voice Live API integration
-- Real-time audio streaming  
-- Azure deployment infrastructure
-- Security best practices
+- **Azure Voice Live API integration** - Real-time voice processing with neural TTS
+- **Real-time audio streaming** - WebSocket-based PCM audio pipeline
+- **Azure deployment infrastructure** - Container Apps with Bicep templates
+- **Security best practices** - Managed Identity, Key Vault, RBAC
+- **Professional logging system** - Structured, emoji-free debugging logs
 
-### Multi-Agent Framework - IMPLEMENTED
+### ✅ COMPLETED: Multi-Agent Framework
 
 - **Semantic Kernel integration** with Microsoft's AI orchestration framework
 - **Healthcare agent system** (InfoAgent, PatientContextAgent, ActionAgent)
@@ -362,13 +363,21 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 - **Voice-to-orchestration pipeline** with callback integration
 - **Structured response system** with spoken + card data
 - **Professional UI** with card display and conversation formatting
+- **Conversation state management** - Multi-turn conversations with completion detection
 
-### Specialized Healthcare Agents - IMPLEMENTED
+### ✅ COMPLETED: Specialized Healthcare Agents
 
 - **InfoAgent**: Symptom and medical history extraction
 - **PatientContextAgent**: Appointment relevance analysis  
 - **ActionAgent**: Personalized preparation checklist generation
 - **Orchestration Engine**: Coordinates all agents with context awareness
+- **Dynamic card generation**: Context-aware appointment preparation checklists
+
+### 🔄 IN PROGRESS: Race Condition Resolution
+
+- **Issue identified**: Voice Live API default AI competing with custom orchestrator
+- **Solution planned**: Migration to Azure AI Foundry Agent Mode (Solution B)
+- **Current workaround**: Professional logging for monitoring race conditions
 
 ### System Verification Checklist
 
@@ -376,6 +385,14 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 2. **Connect with a voice client** - Professional web interface with Voice/Text modes
 3. **Speak the full caregiver query** - Real-time voice input with transcription
 4. **Hear the complete, orchestrated response spoken back** - Multi-agent orchestrated responses with TTS
+
+### 🎯 NEXT: Azure AI Foundry Migration
+
+**Planned Implementation (Solution B):**
+- Deploy orchestrator as Azure AI agent for race condition elimination
+- Migrate InfoAgent, PatientContextAgent, ActionAgent to Azure AI Foundry
+- Update Voice Live connection to use agent_id instead of model
+- Preserve all current functionality with improved reliability
 
 ### Future Enhancements (Optional)
 
@@ -431,62 +448,25 @@ Show all current values:
 azd env get-values
 ```
 
-## RBAC Troubleshooting
+## Troubleshooting
 
-### 1. Missing Permission to Create Role Assignments
+For detailed troubleshooting guides, please refer to these specialized documents:
 
-Symptoms: Deployment fails with `AuthorizationFailed` or `Client is not authorized to perform action Microsoft.Authorization/roleAssignments/write`.
+### 📋 [Provision and Deployment Issues](./docs/PROVISION_AND_DEPLOYMENT_TROUBLESHOOTING.md)
 
-Workaround:
+Complete guide for resolving Azure deployment issues including:
+- RBAC permission errors (`AuthorizationFailed`, `RoleAssignmentExists`)
+- Container App deployment problems
+- Bicep template compilation issues
+- Manual role assignment procedures
 
-1. Manually assign needed roles (portal or CLI) to the managed identity:
+### ⚡ [Voice Live API Race Condition](./docs/VOICE_LIVE_API_RACE_CONDITION.md)
 
-```pwsh
-$subId = (az account show --query id -o tsv)
-$rg = '<resource-group-name>'
-$miName = '<user-assigned-identity-name>'
-$principalId = az identity show -g $rg -n $miName --query principalId -o tsv
-
-# Cognitive Services User
-az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --role "Cognitive Services User" --scope \
-  /subscriptions/$subId/resourceGroups/$rg/providers/Microsoft.CognitiveServices/accounts/<ai-services-account-name>
-
-# Key Vault Secrets User
-az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope \
-  /subscriptions/$subId/resourceGroups/$rg/providers/Microsoft.KeyVault/vaults/<key-vault-name>
-
-# AcrPull
-az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --role AcrPull --scope \
-  /subscriptions/$subId/resourceGroups/$rg/providers/Microsoft.ContainerRegistry/registries/<acr-name>
-```
-
-1. Disable template RBAC creation:
-
-```pwsh
-azd env set createRoleAssignments false
-azd env set createAcrPullAssignment false
-azd provision
-```
-
-### 2. RoleAssignmentExists Error
-
-Symptom: `RoleAssignmentExists: The role assignment already exists.`
-
-Cause: Template attempts to create a role that was already manually created in a previous attempt.
-
-Fix:
-
-```pwsh
-azd env set createRoleAssignments false
-azd env set createAcrPullAssignment false
-azd provision
-```
-
-### 3. Verifying Identity Permissions
-
-```pwsh
-az role assignment list --assignee <principal-id> -o table
-```
+Comprehensive analysis and solutions for the race condition between Voice Live API's default AI and custom orchestrator:
+- Problem identification and root cause analysis
+- Professional logging for debugging
+- Solution A (Empty Model) vs Solution B (Azure AI Foundry Agent Mode)
+- Implementation strategy and next steps
 
 ## Monitoring & Debugging
 
