@@ -24,7 +24,12 @@ flow_logger = ConversationFlowLogger(__name__)
 
 def session_config():
     """Returns the session configuration for Azure AI Foundry Agent Mode."""
-    return {
+    # Get Azure AI Foundry configuration
+    project_id = os.getenv("AZURE_AI_PROJECT_ID", "voice-multi-agent-project")
+    foundry_endpoint = os.getenv("AZURE_AI_FOUNDRY_ENDPOINT")
+    foundry_connection_string = os.getenv("AZURE_AI_FOUNDRY_CONNECTION_STRING")
+    
+    config = {
         "type": "session.update",
         "session": {
             "instructions": "You are connected to an Azure AI Foundry multi-agent system for healthcare appointment preparation. Follow the agent orchestration exactly as configured.",
@@ -47,6 +52,12 @@ def session_config():
             },
         },
     }
+    
+    # Note: Azure AI Foundry project configuration is handled via URL parameters
+    # The agent_id and project_name are passed in the WebSocket URL
+    logger.info(f"Session configuration prepared for Azure AI Foundry Agent Mode")
+    
+    return config
 
 
 class VoiceLiveAgentHandler:
@@ -100,35 +111,33 @@ class VoiceLiveAgentHandler:
     async def _connect_with_agent_id(self):
         """Try connecting with agent_id parameter (Azure AI Foundry native integration)."""
         # Add Azure AI Foundry project configuration
+        project_name = os.getenv("AZURE_AI_FOUNDRY_PROJECT_NAME", "voice-multi-agent-project")
         project_id = os.getenv("AZURE_AI_PROJECT_ID", "voice-multi-agent-project")
         foundry_endpoint = os.getenv("AZURE_AI_FOUNDRY_ENDPOINT")
         
-        url = f"{self.endpoint}/voice-live/realtime?api-version=2025-05-01-preview&agent_id={self.agent_id}"
+        # Validate Azure AI Foundry configuration
+        if not project_name and not project_id:
+            logger.error("Azure AI Foundry project configuration missing!")
+            logger.error("Required: Either AZURE_AI_FOUNDRY_PROJECT_NAME or AZURE_AI_PROJECT_ID")
+            raise ValueError("Azure AI Foundry project configuration incomplete")
+        
+        # Use project_name in URL as per Azure documentation
+        project_param = project_name or project_id
+        url = f"{self.endpoint}/voice-live/realtime?api-version=2025-05-01-preview&agent_id={self.agent_id}&project_name={project_param}"
         url = url.replace("https://", "wss://")
         
         logger.info(f"Trying agent_id connection: {url}")
-        logger.info(f"Azure AI Foundry project: {project_id}")
+        logger.info(f"Azure AI Foundry project: {project_param}")
         
         headers = {"x-ms-client-request-id": self._generate_guid()}
         headers["api-key"] = self.api_key
         
-        # Add Azure AI Foundry connection headers
-        if foundry_endpoint and project_id:
-            headers["x-azure-ai-project-id"] = project_id
-            headers["x-azure-ai-foundry-endpoint"] = foundry_endpoint.replace("https://", "").replace("/", "")
-        
         self.ws = await ws_connect(url, additional_headers=headers)
         logger.info("Voice Live API connection established successfully (Native Agent Mode)")
         
-        # Send Azure AI Foundry agent configuration
+        # Send session configuration (agent_id and project already in URL)
         config = session_config()
-        # Add Azure AI Foundry agent configuration to session
-        config["session"]["agent_config"] = {
-            "agent_id": self.agent_id,
-            "project_id": project_id,
-            "foundry_endpoint": foundry_endpoint
-        }
-        logger.info(f"Sending session config with Azure AI Foundry agent: {self.agent_id}")
+        logger.info(f"Sending session config for Azure AI Foundry agent: {self.agent_id}")
         await self._send_json(config)
         await self._initialize_connection("Native Azure AI Foundry Agent Mode")
 

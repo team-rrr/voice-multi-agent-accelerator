@@ -419,6 +419,28 @@
       transition: background-color 0.3s ease, border-left 0.3s ease, transform 0.3s ease;
     }
 
+    .speech-focus {
+      background: var(--fluent-accent-10) !important;
+      border-left: 4px solid var(--fluent-accent) !important;
+      box-shadow: 0 2px 8px rgba(0, 120, 212, 0.15) !important;
+      animation: speechPulse 0.6s ease-out;
+    }
+
+    @keyframes speechPulse {
+      0% {
+        transform: translateX(-4px);
+        opacity: 0.8;
+      }
+      50% {
+        transform: translateX(2px);
+        opacity: 1;
+      }
+      100% {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
     .scroll-indicator {
       position: absolute;
       bottom: 24px;
@@ -874,49 +896,97 @@
           entries[0].remove();
         }
         
-        // Enhanced auto-scroll with intelligent focus management
+        // Direct auto-scroll to any new content
         scrollToLatestEntry(logs, entry);
+        
+        // For critical content (AI responses), add extra immediate scroll
+        if (type === 'received' && (message.includes('📝') || message.includes('AI Response'))) {
+          setTimeout(() => {
+            logs.scrollTo({
+              top: logs.scrollHeight,
+              behavior: 'auto' // Instant scroll for AI responses
+            });
+          }, 200);
+        }
       });
     }
 
-    // Enhanced scrolling function with smart behavior
+    // Direct auto-scroll function - always scrolls to new content immediately
     function scrollToLatestEntry(container, newEntry) {
-      // Check if user is currently scrolled near the bottom (within 100px)
-      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      // Always scroll to new content - no conditions or user position checks
+      const isSpeechConversation = isSpeechRelatedMessage(newEntry);
       
-      // Always scroll to new entries during active conversation
-      const shouldAutoScroll = isNearBottom || isActiveConversation();
-      
-      if (shouldAutoScroll) {
-        // Add a subtle highlight effect to the new entry
-        newEntry.classList.add('entry-highlight');
-        
-        // Smooth scroll to the new entry
-        setTimeout(() => {
-          newEntry.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'end',
-            inline: 'nearest'
-          });
-          
-          // Remove highlight after animation
-          setTimeout(() => {
-            newEntry.classList.remove('entry-highlight');
-          }, 2000);
-        }, 50);
+      // Add visual highlight to new entry
+      newEntry.classList.add('entry-highlight');
+      if (isSpeechConversation) {
+        newEntry.classList.add('speech-focus');
       }
+      
+      // Mark auto-scroll in progress
+      window.autoScrollInProgress = true;
+      
+      // Immediate scroll to new content - no delays
+      setTimeout(() => {
+        // Direct scroll to bottom to show latest content
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth'
+        });
+        
+        // Clear auto-scroll flag after animation completes
+        setTimeout(() => {
+          window.autoScrollInProgress = false;
+        }, 500);
+        
+        // Remove highlight after animation
+        setTimeout(() => {
+          newEntry.classList.remove('entry-highlight');
+          newEntry.classList.remove('speech-focus');
+        }, 2000);
+      }, 10); // Minimal delay just to ensure DOM is updated
     }
 
-    // Check if there's active conversation happening
+    // Check if a message is speech-related for enhanced focus
+    function isSpeechRelatedMessage(entry) {
+      const entryText = entry.textContent || entry.innerHTML || '';
+      const speechKeywords = [
+        'Voice recording started',
+        'Voice recording stopped', 
+        'Processing voice input',
+        'AI Response:',
+        '📝',
+        'Appointment Preparation',
+        'speak',
+        'listening'
+      ];
+      
+      return speechKeywords.some(keyword => 
+        entryText.toLowerCase().includes(keyword.toLowerCase())
+      );
+    }
+
+    // Check if there's active conversation happening - enhanced for speech focus
     function isActiveConversation() {
-      // Consider conversation active if there was recent activity (within last 10 seconds)
+      // Consider conversation active if there was recent activity (within last 15 seconds for speech)
       const now = Date.now();
-      const recentActivityThreshold = 10000; // 10 seconds
+      const speechActivityThreshold = 15000; // 15 seconds for speech conversations
+      const generalActivityThreshold = 8000;  // 8 seconds for other activities
+      
+      // Enhanced speech detection
+      const isVoiceRecording = isRecording;
+      const isSpeakingActive = document.getElementById('startSpeaking')?.textContent === 'Stop Speaking';
+      const isThinking = document.querySelector('.thinking-indicator')?.style.display !== 'none';
+      
+      // Use longer threshold for speech-related activities
+      const activityThreshold = (isVoiceRecording || isSpeakingActive) ? 
+                               speechActivityThreshold : generalActivityThreshold;
       
       // Check if websocket is active or there are ongoing speech operations
       return wsConnected || 
-             document.getElementById('startSpeaking')?.textContent === 'Stop Speaking' ||
-             (window.lastActivityTime && (now - window.lastActivityTime) < recentActivityThreshold);
+             isVoiceRecording ||
+             isSpeakingActive ||
+             isThinking ||
+             (window.lastActivityTime && (now - window.lastActivityTime) < activityThreshold);
     }
 
     // Track activity time for smart scrolling
@@ -983,7 +1053,7 @@
       }
     }
 
-    // Monitor scroll position and show/hide indicator
+    // Monitor scroll position and show/hide indicator (minimal use since auto-scroll is always active)
     function setupScrollIndicator() {
       const logContent = document.querySelector('.log-content');
       const scrollIndicator = document.getElementById('scrollIndicator');
@@ -996,10 +1066,11 @@
         if (isNearBottom) {
           scrollIndicator.classList.remove('visible');
         } else {
-          // Only show indicator if there are recent messages
-          const hasRecentActivity = window.lastActivityTime && 
-                                   (Date.now() - window.lastActivityTime) < 30000; // 30 seconds
-          if (hasRecentActivity) {
+          // Only show indicator if user manually scrolled up AND there's very recent activity
+          const hasVeryRecentActivity = window.lastActivityTime && 
+                                       (Date.now() - window.lastActivityTime) < 5000; // 5 seconds only
+          // Only show if user actively scrolled up recently (not auto-scroll)
+          if (hasVeryRecentActivity && !window.autoScrollInProgress) {
             scrollIndicator.classList.add('visible');
           }
         }
@@ -1281,6 +1352,7 @@
           console.log('[Debug] Orchestration response received:', data);
 
           hideThinkingIndicator(); // Hide thinking indicator when response starts
+          trackActivity(); // Track AI response activity for enhanced scrolling
           isProcessingResponse = true;
           responseBuffer = data;
           
@@ -1293,7 +1365,19 @@
               // Log the complete response if we have it
               if (fullResponse) {
                 console.log('[Debug] Adding processed AI response:', fullResponse);
+                trackActivity(); // Track again when actually displaying the response
                 addLog(`📝 ${fullResponse}`, "received");
+                
+                // Ensure immediate focus on AI responses in speech conversations
+                setTimeout(() => {
+                  const logContent = document.querySelector('.log-content');
+                  if (logContent) {
+                    logContent.scrollTo({
+                      top: logContent.scrollHeight,
+                      behavior: 'smooth'
+                    });
+                  }
+                }, 50);
               }
               
               // Handle card data separately if present
@@ -1713,9 +1797,6 @@
         };
         
         marked.setOptions({ renderer });
-        addLog("✅ Enhanced Markdown formatting enabled", "info");
-      } else {
-        addLog("Warning: Markdown library not loaded, using basic formatting", "info");
       }
     }
 

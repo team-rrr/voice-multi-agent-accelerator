@@ -79,7 +79,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
         # Send ready message to client
         await websocket.send_text(json.dumps({
             "type": "ready", 
-            "text": "Voice Multi-Agent Assistant is ready! (Azure AI Foundry Agent Mode - Race condition eliminated)"
+            "text": "Voice Multi-Agent Assistant is ready!"
         }))
         
         flow_logger.agent_processing(session_id, "AzureAIFoundry", "agent_mode_initialized")
@@ -103,7 +103,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                             # Respond to ping
                             await websocket.send_text(json.dumps({
                                 "type": "pong",
-                                "text": "Voice Multi-Agent Bot is alive (Agent Mode)",
+                                "text": "Voice Multi-Agent Assistant is ready",
                                 "mode": "azure_ai_foundry_agent"
                             }))
                             
