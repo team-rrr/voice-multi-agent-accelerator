@@ -447,6 +447,49 @@
       background: var(--fluent-primary-dark);
     }
 
+    /* Enhanced conversation formatting */
+    .log-entry {
+      line-height: 1.5;
+    }
+
+    .log-entry strong {
+      color: var(--fluent-neutral-160);
+    }
+
+    .log-entry .ai-header {
+      font-weight: 600;
+      font-size: 1.1em;
+      margin: 16px 0 8px 0;
+      color: var(--fluent-primary);
+      border-bottom: 1px solid var(--fluent-neutral-30);
+      padding-bottom: 4px;
+    }
+
+    .log-entry .ai-list-item {
+      margin: 6px 0;
+      padding: 4px 0 4px 24px;
+      position: relative;
+    }
+
+    .log-entry .ai-list-number {
+      position: absolute;
+      left: 0;
+      font-weight: 600;
+      color: var(--fluent-primary);
+    }
+
+    .log-entry .ai-bullet {
+      margin: 4px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .log-entry .ai-bullet-icon {
+      position: absolute;
+      left: 4px;
+      color: var(--fluent-primary);
+    }
+
     .log-entry {
       margin: 12px 0;
       padding: 12px 16px;
@@ -777,15 +820,32 @@
       const entry = document.createElement('div');
       entry.className = `log-entry log-${type}`;
       
+      // Debug logging to catch object issues
+      if (typeof message === 'object') {
+        console.warn('[AddLog] Received object instead of string:', message);
+        message = JSON.stringify(message, null, 2);
+      }
+      if (typeof message !== 'string') {
+        console.warn('[AddLog] Converting non-string message:', typeof message, message);
+        message = String(message);
+      }
+      
       // Extract the actual content after emoji/prefix for AI responses
       let displayMessage = message;
       let actualContent = message;
       
       // For AI responses, separate the prefix from the content and log professionally
-      if (message.includes('🤖 AI Response: ') || message.includes('AI Response: ')) {
-        const parts = message.split(/🤖 AI Response: |AI Response: /);
+      if (message.includes('🤖 AI Response: ') || message.includes('AI Response: ') || message.includes('📝 ')) {
+        let parts;
+        if (message.includes('📝 ')) {
+          parts = message.split('📝 ');
+          displayMessage = '📝 ';
+        } else {
+          parts = message.split(/🤖 AI Response: |AI Response: /);
+          displayMessage = '📝 ';
+        }
+        
         if (parts.length > 1) {
-          displayMessage = 'AI Response: ';
           actualContent = parts[1];
           ConversationLogger.agentResponse(actualContent);
         }
@@ -795,6 +855,12 @@
       const formattedContent = actualContent === message ? 
         formatConversationText(message) : 
         displayMessage + formatConversationText(actualContent);
+      
+      console.log('[AddLog] Formatted content type:', typeof formattedContent);
+      console.log('[AddLog] Formatted content preview:', 
+        typeof formattedContent === 'string' ? 
+        formattedContent.substring(0, 200) + '...' : 
+        formattedContent);
       
       entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${formattedContent}`;
       
@@ -858,6 +924,54 @@
       window.lastActivityTime = Date.now();
     }
 
+    // Process AI response content to handle structured data
+    function processAIResponse(responseData) {
+      console.log('[ProcessAI] Processing response:', responseData);
+      console.log('[ProcessAI] Response type:', typeof responseData);
+      console.log('[ProcessAI] Response keys:', Object.keys(responseData || {}));
+      
+      let content = '';
+      
+      // Try different fields that might contain the response
+      if (responseData.spoken_response) {
+        content = responseData.spoken_response;
+        console.log('[ProcessAI] Using spoken_response:', typeof content);
+      } else if (responseData.text) {
+        content = responseData.text;
+        console.log('[ProcessAI] Using text:', typeof content);
+      } else if (responseData.content) {
+        content = responseData.content;
+        console.log('[ProcessAI] Using content:', typeof content);
+      } else if (responseData.message) {
+        content = responseData.message;
+        console.log('[ProcessAI] Using message:', typeof content);
+      } else if (typeof responseData === 'string') {
+        content = responseData;
+        console.log('[ProcessAI] Using responseData as string');
+      }
+      
+      // Ensure we have a string
+      if (typeof content !== 'string') {
+        console.warn('[ProcessAI] Content is not a string:', typeof content, content);
+        if (content && typeof content === 'object') {
+          console.log('[ProcessAI] Content object keys:', Object.keys(content));
+          // Try to extract text from common object structures
+          if (content.text) content = content.text;
+          else if (content.content) content = content.content;
+          else {
+            console.warn('[ProcessAI] Converting object to JSON string');
+            content = JSON.stringify(content, null, 2);
+          }
+        } else {
+          content = String(content || '');
+        }
+      }
+      
+      console.log('[ProcessAI] Final content type:', typeof content);
+      console.log('[ProcessAI] Final content preview:', content.substring(0, 200) + '...');
+      return content.trim();
+    }
+
     // Scroll to bottom function for the indicator button
     function scrollToBottom() {
       const logContent = document.querySelector('.log-content');
@@ -898,46 +1012,62 @@
     });
 
     function formatConversationText(text) {
-      if (!text || typeof text !== 'string') return text;
+      // Ensure we have a string and handle potential objects
+      if (!text) return '';
+      if (typeof text === 'object') {
+        console.warn('[Format] Received object instead of string:', text);
+        // Try to extract meaningful content from object
+        if (text.text) return formatConversationText(text.text);
+        if (text.content) return formatConversationText(text.content);
+        if (text.message) return formatConversationText(text.message);
+        // Convert to string as fallback
+        text = JSON.stringify(text, null, 2);
+      }
+      if (typeof text !== 'string') {
+        console.warn('[Format] Converting non-string to string:', typeof text, text);
+        text = String(text);
+      }
       
-      // First, check if marked library is available
-      if (typeof marked !== 'undefined') {
-        try {
-          // Configure marked for safe HTML rendering
-          marked.setOptions({
-            breaks: true, // Convert line breaks to <br>
-            sanitize: false, // We trust our AI responses
-            smartypants: true, // Smart quotes and dashes
-            gfm: true, // GitHub Flavored Markdown
-          });
+      // Use safe HTML formatting that won't create objects
+      try {
+        // Clean up the text first
+        let cleaned = text
+          .replace(/\r\n/g, '\n')  // Normalize line endings
+          .replace(/\n\s*\n\s*\n/g, '\n\n')  // Remove triple+ newlines
+          .trim();
+        
+        // Apply safe HTML formatting step by step using CSS classes
+        let formatted = cleaned
+          // Headers with CSS classes for consistency
+          .replace(/^### (.*$)/gim, '<div class="ai-header">$1</div>')
+          .replace(/^## (.*$)/gim, '<div style="font-weight: 600; font-size: 1.2em; margin: 18px 0 10px 0; color: var(--fluent-primary);">$1</div>')
+          .replace(/^# (.*$)/gim, '<div style="font-weight: 600; font-size: 1.3em; margin: 20px 0 12px 0; color: var(--fluent-primary);">$1</div>')
           
-          // Clean up the text first
-          let cleaned = text
-            .replace(/\r\n/g, '\n')  // Normalize line endings
-            .replace(/\n\s*\n\s*\n/g, '\n\n')  // Remove triple+ newlines
-            .trim();
+          // Bold text
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           
-          // Convert common bullet formats to Markdown lists
-          cleaned = cleaned
-            .replace(/\n• /g, '\n* ')  // Convert • to *
-            .replace(/\n- /g, '\n* ')  // Convert - to *
-            .replace(/^\* /gm, '* ')   // Ensure lists start properly
-            .replace(/^([^*\n])/gm, '\n$1'); // Add spacing before non-list items
+          // Process numbered lists with CSS classes
+          .replace(/^(\d+)\.\s+(.*)$/gm, '<div class="ai-list-item"><span class="ai-list-number">$1.</span>$2</div>')
           
-          // Parse with marked
-          const html = marked.parse(cleaned);
+          // Process bullet lists with CSS classes
+          .replace(/^\* (.*)$/gm, '<div class="ai-bullet"><span class="ai-bullet-icon">•</span>$1</div>')
+          .replace(/^- (.*)$/gm, '<div class="ai-bullet"><span class="ai-bullet-icon">•</span>$1</div>')
+          .replace(/^• (.*)$/gm, '<div class="ai-bullet"><span class="ai-bullet-icon">•</span>$1</div>')
           
-          // Clean up the generated HTML
-          return html
-            .replace(/^\s*<p>\s*<\/p>\s*/g, '') // Remove empty paragraphs at start
-            .replace(/\s*<p>\s*<\/p>\s*$/g, '') // Remove empty paragraphs at end
-            .replace(/<p>\s*<\/p>/g, '')        // Remove empty paragraphs anywhere
-            .trim();
-            
-        } catch (e) {
-          console.warn('[Markdown] Parsing failed, using fallback formatting:', e);
-          // Fall through to basic formatting
+          // Line breaks for paragraphs with proper spacing
+          .replace(/\n\n/g, '<div style="margin: 12px 0;"></div>')
+          .replace(/\n/g, '<br>');
+        
+        // Ensure result is a string
+        if (typeof formatted !== 'string') {
+          formatted = String(formatted);
         }
+        
+        return formatted;
+        
+      } catch (e) {
+        // Fallback to plain text with line breaks
+        return text.replace(/\n/g, '<br>') || '';
       }
       
       // Fallback: Basic formatting (original implementation)
@@ -1056,6 +1186,17 @@
           try {
             const data = JSON.parse(event.data);
             
+            // Debug logging for all incoming messages
+            console.log('[WebSocket] Received message:', {
+              type: data?.type,
+              kind: data?.Kind,
+              hasText: !!data?.text,
+              hasSpokenResponse: !!data?.spoken_response,
+              hasCardData: !!data?.card_data,
+              textLength: data?.text?.length || 0,
+              keys: Object.keys(data)
+            });
+            
             // Handle JSON messages for transcription, stop audio, etc.
             if (data.Kind === "StopAudio") {
               addLog("🛑 Audio stopped", "voice");
@@ -1137,6 +1278,7 @@
           break;
         case 'orchestration_response':
           // Handle multi-agent response - buffer it to prevent flickering
+          console.log('[Debug] Orchestration response received:', data);
 
           hideThinkingIndicator(); // Hide thinking indicator when response starts
           isProcessingResponse = true;
@@ -1144,18 +1286,20 @@
           
           // Delay processing slightly to avoid flickering with real-time transcripts
           setTimeout(() => {
-            if (responseBuffer && responseBuffer.spoken_response) {
-              const cleanResponse = responseBuffer.spoken_response.trim();
-              if (cleanResponse) {
-                addLog(`AI Response: ${cleanResponse}`, "voice");
+            if (responseBuffer) {
+              // Process the complete AI response using our robust handler
+              const fullResponse = processAIResponse(responseBuffer);
+              
+              // Log the complete response if we have it
+              if (fullResponse) {
+                console.log('[Debug] Adding processed AI response:', fullResponse);
+                addLog(`📝 ${fullResponse}`, "received");
               }
-            }
-            if (responseBuffer && responseBuffer.card_data) {
-              displayCard(responseBuffer.card_data);
-              // Also log the detailed card content to conversation history
-              const cardContent = formatCardDataForLog(responseBuffer.card_data);
-              if (cardContent) {
-                addLog(`Appointment Preparation Details:\n\n${cardContent}`, "received");
+              
+              // Handle card data separately if present
+              if (responseBuffer.card_data) {
+                displayCard(responseBuffer.card_data);
+                // Don't duplicate card content in logs since main response should include it
               }
             }
             isProcessingResponse = false;
@@ -1180,8 +1324,9 @@
           break;
         case 'ai_response':
           // Log AI responses immediately in conversation log
-          if (data.text && data.text.trim()) {
-            addLog(`AI Response: ${data.text.trim()}`, "voice");
+          const aiResponseContent = processAIResponse(data);
+          if (aiResponseContent) {
+            addLog(`📝 ${aiResponseContent}`, "received");
           }
           break;
         case 'echo':
@@ -1201,7 +1346,10 @@
             
             // Only log final transcripts to avoid spam
             if (!isPartial) {
-              addLog(`AI Response: ${transcriptText}`, "voice");
+              const processedTranscript = processAIResponse({ text: transcriptText });
+              if (processedTranscript) {
+                addLog(`📝 ${processedTranscript}`, "received");
+              }
             }
           }
           break;
