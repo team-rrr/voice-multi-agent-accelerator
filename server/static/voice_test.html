@@ -3,66 +3,123 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voice Multi-Agent Assistant - Appointment Preparation</title>
+  <title>Voice Multi-Agent Assistant - Healthcare Appointment Preparation</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
+    /* Fluent UI Design System */
+    :root {
+      --fluent-primary: #0078d4;
+      --fluent-primary-hover: #106ebe;
+      --fluent-primary-pressed: #005a9e;
+      --fluent-neutral-10: #faf9f8;
+      --fluent-neutral-20: #f3f2f1;
+      --fluent-neutral-30: #edebe9;
+      --fluent-neutral-40: #e1dfdd;
+      --fluent-neutral-60: #c8c6c4;
+      --fluent-neutral-90: #605e5c;
+      --fluent-neutral-100: #484644;
+      --fluent-neutral-140: #323130;
+      --fluent-neutral-160: #201f1e;
+      --fluent-success: #107c10;
+      --fluent-warning: #ffaa44;
+      --fluent-danger: #d83b01;
+      --fluent-info: #8764b8;
+      
+      --fluent-shadow-2: 0 1px 2px rgba(0,0,0,0.14), 0 0px 2px rgba(0,0,0,0.12);
+      --fluent-shadow-4: 0 2px 4px rgba(0,0,0,0.14), 0 0px 4px rgba(0,0,0,0.12);
+      --fluent-shadow-8: 0 4px 8px rgba(0,0,0,0.14), 0 0px 8px rgba(0,0,0,0.12);
+      --fluent-shadow-16: 0 8px 16px rgba(0,0,0,0.14), 0 0px 16px rgba(0,0,0,0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      padding: 20px;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+      background: var(--fluent-neutral-10);
       min-height: 100vh;
-      color: #333;
+      color: var(--fluent-neutral-160);
+      line-height: 1.4;
     }
 
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
+    .app-header {
       background: white;
-      border-radius: 12px;
-      padding: 30px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      border-bottom: 1px solid var(--fluent-neutral-40);
+      padding: 16px 24px;
+      box-shadow: var(--fluent-shadow-2);
     }
 
-    h1 {
-      text-align: center;
-      color: #4a5568;
-      margin-bottom: 10px;
-      font-size: 2.2rem;
+    .app-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--fluent-neutral-160);
     }
 
-    .subtitle {
-      text-align: center;
-      color: #718096;
-      margin-bottom: 30px;
-      font-size: 1.1rem;
+    .app-subtitle {
+      margin: 4px 0 0 0;
+      font-size: 14px;
+      color: var(--fluent-neutral-90);
+      font-weight: 400;
+    }
+
+    .app-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    @media (min-width: 768px) {
+      .app-container {
+        grid-template-columns: 400px 1fr;
+      }
     }
 
     .mode-selector {
       display: flex;
-      justify-content: center;
-      margin-bottom: 30px;
-      gap: 10px;
+      background: white;
+      border-radius: 4px;
+      border: 1px solid var(--fluent-neutral-60);
+      overflow: hidden;
+      margin-bottom: 24px;
+      box-shadow: var(--fluent-shadow-2);
     }
 
     .mode-btn {
-      padding: 10px 20px;
-      border: 2px solid #4299e1;
-      background: white;
-      color: #4299e1;
-      border-radius: 25px;
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      background: transparent;
+      color: var(--fluent-neutral-90);
+      font-weight: 400;
+      font-size: 14px;
       cursor: pointer;
-      transition: all 0.3s ease;
-      font-weight: 500;
+      transition: all 0.1s ease-in;
+      border-right: 1px solid var(--fluent-neutral-40);
+    }
+
+    .mode-btn:last-child {
+      border-right: none;
     }
 
     .mode-btn.active {
-      background: #4299e1;
+      background: var(--fluent-primary);
       color: white;
+      font-weight: 600;
     }
 
-    .mode-btn:hover {
-      transform: translateY(-2px);
+    .mode-btn:hover:not(.active) {
+      background: var(--fluent-neutral-20);
+    }
+
+    .mode-btn:active:not(.active) {
+      background: var(--fluent-neutral-30);
     }
 
     .voice-only {
@@ -73,215 +130,335 @@
       display: inline-block;
     }
 
-    .mode-controls {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 15px;
-      flex-wrap: nowrap;
-      padding: 15px 20px;
-      background: #f8fafc;
-      border-radius: 12px;
-      border: 2px solid #e2e8f0;
+    .control-panel {
+      background: white;
+      border-radius: 4px;
+      border: 1px solid var(--fluent-neutral-40);
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: var(--fluent-shadow-2);
     }
 
-    .controls {
+    .control-section {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       justify-content: center;
       align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: nowrap;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
     }
 
-    button {
-      padding: 10px 20px;
-      font-size: 0.9rem;
-      border: none;
-      border-radius: 6px;
+    .control-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .fluent-button {
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 400;
+      border: 1px solid var(--fluent-neutral-60);
+      border-radius: 4px;
       cursor: pointer;
-      transition: all 0.3s ease;
-      font-weight: 500;
-      min-width: 140px;
+      transition: all 0.1s ease-in;
+      background: white;
+      color: var(--fluent-neutral-160);
+      min-width: 120px;
       text-align: center;
-      white-space: nowrap;
     }
 
-    #connectBtn {
-      background: linear-gradient(135deg, #4299e1, #3182ce);
+    .fluent-button:hover {
+      background: var(--fluent-neutral-20);
+      border-color: var(--fluent-neutral-90);
+    }
+
+    .fluent-button:active {
+      background: var(--fluent-neutral-30);
+    }
+
+    .fluent-button.primary {
+      background: var(--fluent-primary);
+      border-color: var(--fluent-primary);
       color: white;
     }
 
-    #connectBtn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(66, 153, 225, 0.4);
+    .fluent-button.primary:hover {
+      background: var(--fluent-primary-hover);
+      border-color: var(--fluent-primary-hover);
     }
 
-    #disconnectBtn {
-      background: linear-gradient(135deg, #e53e3e, #c53030);
+    .fluent-button.primary:active {
+      background: var(--fluent-primary-pressed);
+      border-color: var(--fluent-primary-pressed);
+    }
+
+    .fluent-button.danger {
+      background: var(--fluent-danger);
+      border-color: var(--fluent-danger);
       color: white;
     }
 
-    #disconnectBtn:disabled {
-      background: #cbd5e0;
+    .fluent-button.danger:hover {
+      background: #c1360c;
+      border-color: #c1360c;
+    }
+
+    .fluent-button.danger:active {
+      background: #a12d06;
+      border-color: #a12d06;
+    }
+
+    .fluent-button:disabled {
+      background: var(--fluent-neutral-20);
+      border-color: var(--fluent-neutral-40);
+      color: var(--fluent-neutral-60);
       cursor: not-allowed;
-      transform: none;
     }
 
     .voice-controls {
       display: none;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 20px;
-      align-items: center;
     }
 
     .voice-controls.active {
-      display: flex;
-    }
-
-    #startVoiceBtn {
-      background: linear-gradient(135deg, #48bb78, #38a169);
-      color: white;
-    }
-
-    #stopVoiceBtn {
-      background: linear-gradient(135deg, #ed8936, #dd6b20);
-      color: white;
-    }
-
-    .text-input-area {
-      display: none;
-      margin-bottom: 20px;
-    }
-
-    .text-input-area.active {
-      display: flex;
-      gap: 10px;
-    }
-
-    #messageInput {
-      flex: 1;
-      padding: 12px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 1rem;
-    }
-
-    #messageInput:focus {
-      outline: none;
-      border-color: #4299e1;
-      box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
-    }
-
-    #sendBtn {
-      background: linear-gradient(135deg, #805ad5, #6b46c1);
-      color: white;
-      padding: 12px 20px;
-    }
-
-    .status {
-      text-align: center;
-      padding: 10px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-weight: 500;
-    }
-
-    .status.connected {
-      background: #c6f6d5;
-      color: #22543d;
-      border: 1px solid #9ae6b4;
-    }
-
-    .status.disconnected {
-      background: #fed7d7;
-      color: #742a2a;
-      border: 1px solid #feb2b2;
-    }
-
-    .card-display {
-      background: #f8f9ff;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      display: none;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-    }
-
-    .card-display.active {
       display: block;
     }
 
-    .card-title {
-      font-size: 1.3rem;
-      font-weight: bold;
-      color: #2d3748;
-      margin-bottom: 15px;
-      text-align: center;
-    }
+    /* Voice control buttons inherit fluent button styling */
 
-    .card-section {
-      margin-bottom: 15px;
-      padding: 12px;
+    .text-input-panel {
       background: white;
-      border-radius: 6px;
-      border-left: 4px solid #4299e1;
+      border-radius: 4px;
+      border: 1px solid var(--fluent-neutral-40);
+      padding: 16px;
+      margin-bottom: 24px;
+      box-shadow: var(--fluent-shadow-2);
+      display: none;
     }
 
-    .card-section h3 {
+    .text-input-panel.active {
+      display: block;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .fluent-textbox {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--fluent-neutral-60);
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+      background: white;
+      color: var(--fluent-neutral-160);
+      min-height: 20px;
+      resize: vertical;
+    }
+
+    .fluent-textbox:focus {
+      outline: none;
+      border-color: var(--fluent-primary);
+      box-shadow: inset 0 0 0 1px var(--fluent-primary);
+    }
+
+    .fluent-textbox::placeholder {
+      color: var(--fluent-neutral-60);
+    }
+
+    .status-bar {
+      background: white;
+      border-radius: 4px;
+      border: 1px solid var(--fluent-neutral-40);
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      box-shadow: var(--fluent-shadow-2);
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-indicator.connected .status-dot {
+      background: var(--fluent-success);
+    }
+
+    .status-indicator.disconnected .status-dot {
+      background: var(--fluent-danger);
+    }
+
+    .status-indicator.connected {
+      color: var(--fluent-success);
+    }
+
+    .status-indicator.disconnected {
+      color: var(--fluent-danger);
+    }
+
+    .info-card {
+      background: white;
+      border: 1px solid var(--fluent-neutral-40);
+      border-radius: 4px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: var(--fluent-shadow-2);
+      display: none;
+    }
+
+    .info-card.active {
+      display: block;
+    }
+
+    .info-card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--fluent-neutral-160);
+      margin: 0 0 16px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--fluent-neutral-30);
+    }
+
+    .info-section {
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: var(--fluent-neutral-10);
+      border-radius: 4px;
+      border-left: 3px solid var(--fluent-primary);
+    }
+
+    .info-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-section h3 {
       margin: 0 0 8px 0;
-      color: #2d3748;
-      font-size: 1rem;
+      color: var(--fluent-neutral-160);
+      font-size: 14px;
+      font-weight: 600;
     }
 
-    .card-section ul {
+    .info-section ul {
       margin: 0;
       padding-left: 20px;
     }
 
-    .card-section li {
+    .info-section li {
       margin: 4px 0;
-      color: #4a5568;
+      color: var(--fluent-neutral-90);
+      font-size: 14px;
     }
 
-    .logs {
-      background: #f7fafc;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 20px;
-      max-height: 400px;
+    .conversation-log {
+      background: white;
+      border: 1px solid var(--fluent-neutral-40);
+      border-radius: 4px;
+      padding: 16px;
+      height: 600px;
+      max-height: calc(100vh - 200px);
+      overflow: hidden;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 14px;
+      box-shadow: var(--fluent-shadow-2);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .log-header {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--fluent-neutral-160);
+      margin: 0 0 16px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--fluent-neutral-30);
+      flex-shrink: 0;
+    }
+
+    .log-content {
+      flex: 1;
       overflow-y: auto;
-      font-family: 'Consolas', 'Monaco', monospace;
-      font-size: 0.9rem;
+      overflow-x: hidden;
+      padding-right: 8px;
       scroll-behavior: smooth;
+      scrollbar-width: thin;
+      scrollbar-color: var(--fluent-neutral-60) transparent;
+    }
+
+    .log-content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .log-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .log-content::-webkit-scrollbar-thumb {
+      background: var(--fluent-neutral-60);
+      border-radius: 3px;
+    }
+
+    .log-content::-webkit-scrollbar-thumb:hover {
+      background: var(--fluent-neutral-90);
+    }
+
+    .entry-highlight {
+      background: var(--fluent-primary-10) !important;
+      border-left: 3px solid var(--fluent-primary) !important;
+      transform: translateX(0);
+      transition: background-color 0.3s ease, border-left 0.3s ease, transform 0.3s ease;
+    }
+
+    .scroll-indicator {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      background: var(--fluent-primary);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      box-shadow: var(--fluent-shadow-8);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 100;
+    }
+
+    .scroll-indicator.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .scroll-indicator:hover {
+      background: var(--fluent-primary-dark);
     }
 
     .log-entry {
-      margin: 8px 0;
-      padding: 8px 12px;
-      border-radius: 6px;
-      border-left: 4px solid;
-      line-height: 1.5;
-      animation: fadeInUp 0.2s ease-out;
-    }
-
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(5px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      margin: 12px 0;
+      padding: 12px 16px;
+      border-radius: 4px;
+      border-left: 3px solid;
+      line-height: 1.4;
+      font-family: inherit;
     }
 
     .log-entry p {
       margin: 6px 0;
-      line-height: 1.5;
+      line-height: 1.4;
     }
 
     .log-entry p:first-child {
@@ -293,13 +470,12 @@
     }
 
     .log-entry p:empty {
-      display: none; /* Hide empty paragraphs */
+      display: none;
     }
 
     .log-entry ul {
       margin: 8px 0;
       padding-left: 20px;
-      list-style-type: disc;
     }
 
     .log-entry li {
@@ -309,96 +485,85 @@
 
     .log-entry strong {
       font-weight: 600;
-      color: #2d3748;
+      color: var(--fluent-neutral-160);
     }
-
-    .log-entry br {
-      margin: 0;
-      line-height: 0;
-    }
-
-    /* Remove extra spacing from empty elements */
     .log-entry *:empty {
       display: none;
     }
 
     .log-sent {
-      background: #ebf8ff;
-      border-left-color: #3182ce;
-      color: #2a4a6b;
+      background: #f3f9ff;
+      border-left-color: var(--fluent-primary);
+      color: var(--fluent-neutral-140);
     }
 
     .log-received {
-      background: #f0fff4;
-      border-left-color: #38a169;
-      color: #22543d;
+      background: #f3fff8;
+      border-left-color: var(--fluent-success);
+      color: var(--fluent-neutral-140);
     }
 
     .log-voice {
-      background: #faf5ff;
-      border-left-color: #805ad5;
-      color: #553c9a;
+      background: #faf7ff;
+      border-left-color: var(--fluent-info);
+      color: var(--fluent-neutral-140);
     }
 
     .log-error {
-      background: #fed7d7;
-      border-left-color: #e53e3e;
-      color: #742a2a;
+      background: #fff5f5;
+      border-left-color: var(--fluent-danger);
+      color: var(--fluent-neutral-140);
     }
 
-    .audio-indicator {
+
+
+    .processing-status {
       display: none;
+      padding: 12px 16px;
+      margin: 12px 0;
+      background: white;
+      border: 1px solid var(--fluent-neutral-40);
+      border-radius: 4px;
+      box-shadow: var(--fluent-shadow-2);
+      color: var(--fluent-neutral-90);
+      font-size: 14px;
       text-align: center;
-      margin: 10px 0;
-      color: #805ad5;
-      font-weight: 500;
     }
 
-    .audio-indicator.active {
+    .processing-status.active {
       display: block;
-      animation: pulse 1.5s ease-in-out infinite;
     }
 
-    .thinking-indicator {
-      display: none;
-      text-align: center;
-      margin: 15px 0;
-      padding: 12px;
-      background: #f7fafc;
-      border: 2px solid #4299e1;
-      border-radius: 8px;
-      color: #2d3748;
-      font-weight: 500;
+
+
+    .conversation-panel {
+      grid-column: 1 / -1;
+      min-height: calc(100vh - 160px);
+      display: flex;
+      flex-direction: column;
       position: relative;
     }
 
-    .thinking-indicator.active {
-      display: block;
+    @media (min-width: 768px) {
+      .conversation-panel {
+        grid-column: 2;
+        grid-row: 1;
+      }
     }
 
-    .thinking-indicator::before {
-      content: "";
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      background: #4299e1;
-      border-radius: 50%;
-      margin-right: 8px;
-      animation: thinkingPulse 1.4s ease-in-out infinite;
-    }
+    /* Removed old thinking indicator styles */
 
     .streaming-transcript {
-      background: #f0fff4;
-      border: 2px solid #68d391;
-      border-radius: 8px;
-      padding: 12px;
-      margin: 10px 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: #22543d;
-      font-size: 0.95rem;
+      background: white;
+      border: 1px solid var(--fluent-neutral-40);
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-family: 'Segoe UI', sans-serif;
+      color: var(--fluent-neutral-90);
+      font-size: 14px;
       display: none;
-      position: relative;
-      animation: streamingPulse 1.5s ease-in-out infinite;
+      box-shadow: var(--fluent-shadow-2);
     }
 
     .streaming-transcript.active {
@@ -406,7 +571,7 @@
     }
 
     .streaming-transcript::before {
-      content: "🎤 AI Speaking: ";
+      content: "AI Speaking: ";
       font-weight: 600;
       color: #2f855a;
     }
@@ -417,127 +582,118 @@
       animation: blink 1s infinite;
     }
 
-    .thinking-dots {
-      display: inline-block;
-      margin-left: 5px;
+    /* Removed thinking dots animation */
+
+    /* Removed animations for professional appearance */
+
+    .main-panel {
+      display: flex;
+      flex-direction: column;
+      height: fit-content;
     }
 
-    .thinking-dots::after {
-      content: "";
-      animation: thinkingDots 1.4s steps(4, end) infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    @keyframes thinkingPulse {
-      0%, 100% { 
-        opacity: 0.4;
-        transform: scale(1);
-      }
-      50% { 
-        opacity: 1;
-        transform: scale(1.2);
+    @media (min-width: 768px) {
+      .main-panel {
+        max-width: 380px;
+        padding-right: 12px;
       }
     }
-
-    @keyframes thinkingDots {
-      0% { content: ""; }
-      25% { content: "."; }
-      50% { content: ".."; }
-      75% { content: "..."; }
-      100% { content: ""; }
-    }
-
-    @keyframes streamingPulse {
-      0%, 100% { 
-        border-color: #68d391;
-        background: #f0fff4;
-      }
-      50% { 
-        border-color: #48bb78;
-        background: #c6f6d5;
-      }
-    }
-
-    @keyframes blink {
-      0%, 50% { opacity: 1; }
-      51%, 100% { opacity: 0; }
-    }
-
 
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Voice Multi-Agent Assistant</h1>
-    <div class="subtitle">AI-powered appointment preparation with personalized guidance</div>
+  <div class="app-header">
+    <h1 class="app-title">Voice Multi-Agent Assistant</h1>
+    <p class="app-subtitle">Healthcare Appointment Preparation</p>
+  </div>
 
-    <!-- Mode Selection Row -->
-    <div class="mode-controls">
-      <button class="mode-btn active" onclick="setMode('voice')" id="voiceModeBtn">
-        Voice Mode
-      </button>
-      <button class="mode-btn" onclick="setMode('text')" id="textModeBtn">
-        Text Mode
-      </button>
-    </div>
+  <div class="app-container">
+    <div class="main-panel">
+      <!-- Mode Selection -->
+      <div class="mode-selector">
+        <button class="mode-btn active" onclick="setMode('voice')" id="voiceModeBtn">
+          Voice Mode
+        </button>
+        <button class="mode-btn" onclick="setMode('text')" id="textModeBtn">
+          Text Mode
+        </button>
+      </div>
 
-    <!-- Action Controls Row -->
-    <div class="controls">
-      <button id="connectBtn" onclick="connectWebSocket()">
-        Connect
-      </button>
-      <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled>
-        Disconnect
-      </button>
-      <button id="startVoiceBtn" onclick="startVoice()" disabled class="voice-only">
-        Start Speaking
-      </button>
-      <button id="stopVoiceBtn" onclick="stopVoice()" disabled class="voice-only">
-        Stop Speaking
-      </button>
-    </div>
+      <!-- Connection Controls -->
+      <div class="control-panel">
+        <div class="control-section">
+          <button id="connectBtn" onclick="connectWebSocket()" class="fluent-button primary">
+            Connect to Assistant
+          </button>
+          <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled class="fluent-button danger">
+            Disconnect
+          </button>
+        </div>
 
-    <div class="text-input-area" id="textInputArea">
-      <input type="text" id="messageInput" placeholder="Type your message here..." />
-      <button id="sendBtn" onclick="sendTextMessage()">Send</button>
-    </div>
+        <!-- Voice Controls -->
+        <div class="voice-controls" id="voiceControls">
+          <div class="control-section">
+            <button id="startVoiceBtn" onclick="startVoice()" disabled class="fluent-button primary">
+              Start Speaking
+            </button>
+            <button id="stopVoiceBtn" onclick="stopVoice()" disabled class="fluent-button">
+              Stop Speaking
+            </button>
+          </div>
+        </div>
+      </div>
 
-    <div class="audio-indicator" id="audioIndicator">
-      🔊 Processing voice...
-    </div>
+      <!-- Text Input -->
+      <div class="text-input-panel" id="textInputArea">
+        <div class="input-row">
+          <textarea id="messageInput" class="fluent-textbox" placeholder="Type your message here..." rows="3"></textarea>
+          <button id="sendBtn" onclick="sendTextMessage()" class="fluent-button primary">Send</button>
+        </div>
+      </div>
 
-    <div class="thinking-indicator" id="thinkingIndicator">
-      🤔 AI is thinking<span class="thinking-dots"></span>
-    </div>
+      <!-- Status Display -->
+      <div class="status-bar">
+        <div class="status-indicator disconnected" id="status">
+          <div class="status-dot"></div>
+          <span>Disconnected - Click "Connect to Assistant" to start</span>
+        </div>
+      </div>
 
-    <div class="streaming-transcript" id="streamingTranscript">
-    </div>
 
-    <div class="status disconnected" id="status">
-      Disconnected - Click "Connect to AI Assistant" to start
-    </div>
 
-    <!-- Logs Section -->
-    <div id="logs" class="logs">
-      <div class="log-entry">
-        <strong>Welcome!</strong> This is the Voice Multi-Agent Assistant.
-        <br>• Voice Mode: Speak about your medical appointments and get personalized preparation guidance
-        <br>• Text Mode: Type your appointment details for structured responses
-        <br><br><strong>Try saying:</strong> "I have an appointment with Dr. Smith next week for chest pain"
+      <!-- AI Processing Status -->
+      <div class="processing-status" id="thinkingIndicator">
+        AI Assistant is processing your request...
+      </div>
+
+      <!-- Real-time Transcript -->
+      <div class="processing-status" id="streamingTranscript">
       </div>
     </div>
 
-    <!-- Card Display (Modal Style) -->
-    <div id="cardDisplay" class="card-display">
-      <div class="card-header">
-        <h3 id="cardTitle" class="card-title">Appointment Preparation Guide</h3>
-        <button class="card-close" onclick="document.getElementById('cardDisplay').classList.remove('active')">&times;</button>
+    <div class="conversation-panel">
+      <div class="conversation-log" id="logs">
+        <h3 class="log-header">Conversation History</h3>
+        <div class="log-content">
+          <div class="log-entry log-received">
+            <p><strong>Welcome!</strong> This is the Voice Multi-Agent Assistant for healthcare appointment preparation.</p>
+            <ul>
+              <li><strong>Voice Mode:</strong> Speak about your medical appointments and get personalized guidance</li>
+              <li><strong>Text Mode:</strong> Type your appointment details for structured responses</li>
+            </ul>
+            <p><strong>Example:</strong> "I have an appointment with Dr. Smith next week for chest pain"</p>
+          </div>
+        </div>
       </div>
-      <div id="cardContent" class="card-content"></div>
+      <button class="scroll-indicator" id="scrollIndicator" onclick="scrollToBottom()">
+        New messages ↓
+      </button>
+    </div>
+
+    <!-- Information Card Display -->
+    <div id="cardDisplay" class="info-card">
+      <h3 id="cardTitle" class="info-card-title">Appointment Preparation Guide</h3>
+      <div id="cardContent" class="info-card-content"></div>
     </div>
   </div>
 
@@ -607,9 +763,8 @@
       document.getElementById('voiceModeBtn').classList.toggle('active', mode === 'voice');
       document.getElementById('textModeBtn').classList.toggle('active', mode === 'text');
       
-      // Show/hide voice-specific buttons
-      document.getElementById('startVoiceBtn').classList.toggle('active', mode === 'voice');
-      document.getElementById('stopVoiceBtn').classList.toggle('active', mode === 'voice');
+      // Show/hide voice controls
+      document.getElementById('voiceControls').classList.toggle('active', mode === 'voice');
       
       // Show/hide text input area
       document.getElementById('textInputArea').classList.toggle('active', mode === 'text');
@@ -618,7 +773,7 @@
     }
 
     function addLog(message, type = 'info') {
-      const logs = document.getElementById('logs');
+      const logs = document.querySelector('.log-content');
       const entry = document.createElement('div');
       entry.className = `log-entry log-${type}`;
       
@@ -627,8 +782,8 @@
       let actualContent = message;
       
       // For AI responses, separate the prefix from the content and log professionally
-      if (message.includes('🤖 AI Response: ')) {
-        const parts = message.split('🤖 AI Response: ');
+      if (message.includes('🤖 AI Response: ') || message.includes('AI Response: ')) {
+        const parts = message.split(/🤖 AI Response: |AI Response: /);
         if (parts.length > 1) {
           displayMessage = 'AI Response: ';
           actualContent = parts[1];
@@ -653,13 +808,94 @@
           entries[0].remove();
         }
         
-        // Smooth scroll to bottom without jarring jumps
-        logs.scrollTo({
-          top: logs.scrollHeight,
-          behavior: 'smooth'
-        });
+        // Enhanced auto-scroll with intelligent focus management
+        scrollToLatestEntry(logs, entry);
       });
     }
+
+    // Enhanced scrolling function with smart behavior
+    function scrollToLatestEntry(container, newEntry) {
+      // Check if user is currently scrolled near the bottom (within 100px)
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      
+      // Always scroll to new entries during active conversation
+      const shouldAutoScroll = isNearBottom || isActiveConversation();
+      
+      if (shouldAutoScroll) {
+        // Add a subtle highlight effect to the new entry
+        newEntry.classList.add('entry-highlight');
+        
+        // Smooth scroll to the new entry
+        setTimeout(() => {
+          newEntry.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'end',
+            inline: 'nearest'
+          });
+          
+          // Remove highlight after animation
+          setTimeout(() => {
+            newEntry.classList.remove('entry-highlight');
+          }, 2000);
+        }, 50);
+      }
+    }
+
+    // Check if there's active conversation happening
+    function isActiveConversation() {
+      // Consider conversation active if there was recent activity (within last 10 seconds)
+      const now = Date.now();
+      const recentActivityThreshold = 10000; // 10 seconds
+      
+      // Check if websocket is active or there are ongoing speech operations
+      return wsConnected || 
+             document.getElementById('startSpeaking')?.textContent === 'Stop Speaking' ||
+             (window.lastActivityTime && (now - window.lastActivityTime) < recentActivityThreshold);
+    }
+
+    // Track activity time for smart scrolling
+    function trackActivity() {
+      window.lastActivityTime = Date.now();
+    }
+
+    // Scroll to bottom function for the indicator button
+    function scrollToBottom() {
+      const logContent = document.querySelector('.log-content');
+      if (logContent) {
+        logContent.scrollTo({
+          top: logContent.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    }
+
+    // Monitor scroll position and show/hide indicator
+    function setupScrollIndicator() {
+      const logContent = document.querySelector('.log-content');
+      const scrollIndicator = document.getElementById('scrollIndicator');
+      
+      if (!logContent || !scrollIndicator) return;
+      
+      logContent.addEventListener('scroll', () => {
+        const isNearBottom = logContent.scrollHeight - logContent.scrollTop - logContent.clientHeight < 100;
+        
+        if (isNearBottom) {
+          scrollIndicator.classList.remove('visible');
+        } else {
+          // Only show indicator if there are recent messages
+          const hasRecentActivity = window.lastActivityTime && 
+                                   (Date.now() - window.lastActivityTime) < 30000; // 30 seconds
+          if (hasRecentActivity) {
+            scrollIndicator.classList.add('visible');
+          }
+        }
+      });
+    }
+
+    // Initialize scroll indicator when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      setupScrollIndicator();
+    });
 
     function formatConversationText(text) {
       if (!text || typeof text !== 'string') return text;
@@ -775,8 +1011,11 @@
 
     function updateStatus(text, connected) {
       const status = document.getElementById('status');
-      status.textContent = text;
-      status.className = `status ${connected ? 'connected' : 'disconnected'}`;
+      const statusText = status.querySelector('span');
+      if (statusText) {
+        statusText.textContent = text;
+      }
+      status.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
     }
 
     function connectWebSocket() {
@@ -790,6 +1029,7 @@
       socket.onopen = () => {
         addLog(`Connected to ${currentMode.toUpperCase()} endpoint`, "received");
         updateStatus(`Connected in ${currentMode.toUpperCase()} mode`, true);
+
         document.getElementById("connectBtn").disabled = true;
         document.getElementById("disconnectBtn").disabled = false;
         
@@ -800,6 +1040,8 @@
       };
 
       socket.onmessage = async (event) => {
+        trackActivity(); // Track AI activity for smart scrolling
+        
         if (event.data instanceof ArrayBuffer) {
           // Handle binary audio data (prioritize this like call-center project)
           try {
@@ -848,6 +1090,7 @@
       socket.onclose = () => {
         addLog("Disconnected from AI Assistant", "info");
         updateStatus("Disconnected", false);
+
         document.getElementById("connectBtn").disabled = false;
         document.getElementById("disconnectBtn").disabled = true;
         document.getElementById("startVoiceBtn").disabled = true;
@@ -861,6 +1104,7 @@
 
       socket.onerror = (err) => {
         addLog("WebSocket connection error", "error");
+
         console.error("[WebSocket] Connection error:", err);
       };
     }
@@ -886,12 +1130,14 @@
       switch (type) {
         case 'ready':
           if (!readyMessageShown) {
-            addLog(`✅ ${data.text}`, "received");
+            addLog(`${data.text}`, "received");
+
             readyMessageShown = true;
           }
           break;
         case 'orchestration_response':
           // Handle multi-agent response - buffer it to prevent flickering
+
           hideThinkingIndicator(); // Hide thinking indicator when response starts
           isProcessingResponse = true;
           responseBuffer = data;
@@ -901,12 +1147,16 @@
             if (responseBuffer && responseBuffer.spoken_response) {
               const cleanResponse = responseBuffer.spoken_response.trim();
               if (cleanResponse) {
-                addLog(`🤖 AI Response: ${cleanResponse}`, "voice");
+                addLog(`AI Response: ${cleanResponse}`, "voice");
               }
             }
             if (responseBuffer && responseBuffer.card_data) {
               displayCard(responseBuffer.card_data);
-              addLog(`📋 Generated appointment preparation checklist`, "received");
+              // Also log the detailed card content to conversation history
+              const cardContent = formatCardDataForLog(responseBuffer.card_data);
+              if (cardContent) {
+                addLog(`Appointment Preparation Details:\n\n${cardContent}`, "received");
+              }
             }
             isProcessingResponse = false;
             responseBuffer = null;
@@ -916,17 +1166,22 @@
           // Handle card data from voice orchestration
           if (data.payload && !isProcessingResponse) {
             displayCard(data.payload);
-            // Log card display professionally
+            // Log card display professionally with detailed content
             if (!document.getElementById('cardDisplay').classList.contains('active')) {
               ConversationLogger.cardDisplayed(data.payload);
-              addLog(`Generated appointment preparation checklist`, "received");
+              const cardContent = formatCardDataForLog(data.payload);
+              if (cardContent) {
+                addLog(`Appointment Preparation Details:\n\n${cardContent}`, "received");
+              } else {
+                addLog(`Generated appointment preparation checklist`, "received");
+              }
             }
           }
           break;
         case 'ai_response':
           // Log AI responses immediately in conversation log
           if (data.text && data.text.trim()) {
-            addLog(`🤖 AI Response: ${data.text.trim()}`, "voice");
+            addLog(`AI Response: ${data.text.trim()}`, "voice");
           }
           break;
         case 'echo':
@@ -946,7 +1201,7 @@
             
             // Only log final transcripts to avoid spam
             if (!isPartial) {
-              addLog(`🤖 AI Response: ${transcriptText}`, "voice");
+              addLog(`AI Response: ${transcriptText}`, "voice");
             }
           }
           break;
@@ -960,6 +1215,56 @@
             addLog(`📨 ${type}: ${text}`, "received");
           }
       }
+    }
+
+    function formatCardDataForLog(cardData) {
+      if (!cardData) return '';
+      
+      let logContent = '';
+      
+      // Appointment details
+      if (cardData.appointment_details) {
+        logContent += '**Appointment Details**\n';
+        if (cardData.appointment_details.doctor) {
+          logContent += `• **Doctor:** ${cardData.appointment_details.doctor}\n`;
+        }
+        if (cardData.appointment_details.reason) {
+          logContent += `• **Reason:** ${cardData.appointment_details.reason}\n`;
+        }
+        if (cardData.appointment_details.timing) {
+          logContent += `• **When:** ${cardData.appointment_details.timing}\n`;
+        }
+        logContent += '\n';
+      }
+
+      // Preparation items
+      if (cardData.preparation_items && cardData.preparation_items.length > 0) {
+        logContent += '**Documents to Bring**\n';
+        cardData.preparation_items.forEach(item => {
+          logContent += `• ${item}\n`;
+        });
+        logContent += '\n';
+      }
+
+      // Questions to ask
+      if (cardData.questions_to_ask && cardData.questions_to_ask.length > 0) {
+        logContent += '**Questions to Ask Your Doctor**\n';
+        cardData.questions_to_ask.forEach(question => {
+          logContent += `• ${question}\n`;
+        });
+        logContent += '\n';
+      }
+
+      // Post-appointment notes
+      if (cardData.post_appointment_notes && cardData.post_appointment_notes.length > 0) {
+        logContent += '**After Your Appointment**\n';
+        cardData.post_appointment_notes.forEach(note => {
+          logContent += `• ${note}\n`;
+        });
+        logContent += '\n';
+      }
+
+      return logContent.trim();
     }
 
     function displayCard(cardData) {
@@ -983,8 +1288,8 @@
 
       // Appointment details
       if (cardData.appointment_details) {
-        html += '<div class="card-section">';
-        html += '<h3>📅 Appointment Details</h3>';
+        html += '<div class="info-section">';
+        html += '<h3>Appointment Details</h3>';
         html += '<ul>';
         if (cardData.appointment_details.doctor) {
           html += `<li><strong>Doctor:</strong> ${cardData.appointment_details.doctor}</li>`;
@@ -1001,8 +1306,8 @@
 
       // Preparation items
       if (cardData.preparation_items && cardData.preparation_items.length > 0) {
-        html += '<div class="card-section">';
-        html += '<h3>📝 What to Bring/Prepare</h3>';
+        html += '<div class="info-section">';
+        html += '<h3>What to Bring/Prepare</h3>';
         html += '<ul>';
         cardData.preparation_items.forEach(item => {
           html += `<li>${item}</li>`;
@@ -1013,8 +1318,8 @@
 
       // Questions to ask
       if (cardData.questions_to_ask && cardData.questions_to_ask.length > 0) {
-        html += '<div class="card-section">';
-        html += '<h3>❓ Questions to Ask Your Doctor</h3>';
+        html += '<div class="info-section">';
+        html += '<h3>Questions to Ask Your Doctor</h3>';
         html += '<ul>';
         cardData.questions_to_ask.forEach(question => {
           html += `<li>${question}</li>`;
@@ -1025,8 +1330,8 @@
 
       // Follow-up actions
       if (cardData.follow_up_actions && cardData.follow_up_actions.length > 0) {
-        html += '<div class="card-section">';
-        html += '<h3>📋 After Your Appointment</h3>';
+        html += '<div class="info-section">';
+        html += '<h3>After Your Appointment</h3>';
         html += '<ul>';
         cardData.follow_up_actions.forEach(action => {
           html += `<li>${action}</li>`;
@@ -1056,6 +1361,8 @@
       const input = document.getElementById('messageInput');
       const message = input.value.trim();
       
+      trackActivity(); // Track user activity for smart scrolling
+      
       if (message && socket && socket.readyState === WebSocket.OPEN) {
         const payload = {
           type: "text",
@@ -1067,7 +1374,8 @@
         addLog(`Sent: ${message}`, "sent");
         input.value = '';
         
-        // Show thinking indicator for text messages too
+        // Update AI status and show thinking indicator for text messages
+
         showThinkingIndicator();
       }
     }
@@ -1093,6 +1401,8 @@
 
     async function startVoice() {
       if (isRecording) return;
+      
+      trackActivity(); // Track user activity for smart scrolling
       
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -1123,7 +1433,8 @@
         document.getElementById("startVoiceBtn").disabled = true;
         document.getElementById("stopVoiceBtn").disabled = false;
         
-        addLog("🎤 Voice recording started", "voice");
+
+        addLog("Voice recording started", "voice");
         
       } catch (e) {
         addLog(`Failed to start voice: ${e.message}`, "error");
@@ -1132,6 +1443,8 @@
 
     function stopVoice() {
       if (!isRecording) return;
+      
+      trackActivity(); // Track user activity for smart scrolling
       
       if (processor) {
         processor.disconnect();
@@ -1152,7 +1465,8 @@
       document.getElementById("startVoiceBtn").disabled = false;
       document.getElementById("stopVoiceBtn").disabled = true;
       
-      addLog("🛑 Voice recording stopped", "voice");
+
+      addLog("Voice recording stopped", "voice");
       
       // Start thinking timer when user stops speaking
       startThinkingTimer();
@@ -1208,17 +1522,16 @@
     }
 
     function showAudioIndicator() {
-      const indicator = document.getElementById('audioIndicator');
-      indicator.classList.add('active');
-      setTimeout(() => {
-        indicator.classList.remove('active');
-      }, 2000);
+      // Audio indicator function - no longer needed but keeping for compatibility
+      console.log('[Audio] Audio playback indicator');
     }
+
+
 
     function showThinkingIndicator() {
       const thinkingIndicator = document.getElementById('thinkingIndicator');
       thinkingIndicator.classList.add('active');
-      addLog("🤔 AI is analyzing your request...", "voice");
+      addLog("AI is analyzing your request...", "voice");
     }
 
     function hideThinkingIndicator() {
@@ -1254,7 +1567,7 @@
         marked.setOptions({ renderer });
         addLog("✅ Enhanced Markdown formatting enabled", "info");
       } else {
-        addLog("⚠️ Markdown library not loaded, using basic formatting", "info");
+        addLog("Warning: Markdown library not loaded, using basic formatting", "info");
       }
     }
 
@@ -1315,6 +1628,8 @@
     document.addEventListener('DOMContentLoaded', function() {
       initializeMarkdown();
       setMode('voice');
+      // Initialize AI status on page load
+
     });
   </script>
 </body>
