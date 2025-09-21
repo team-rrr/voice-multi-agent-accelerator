@@ -1,6 +1,6 @@
 # Voice Multi-Agent Accelerator
 
-*Azure Sample accelerator for Microsoft Hackathon 2025 - Real-time voice interaction system with Azure AI Foundry multi-agent orchestration.*
+Enterprise-grade voice interaction system with Azure AI Foundry multi-agent orchestration for healthcare appointment preparation. Features real-time voice processing, direct agent integration, and elimination of race conditions through cloud-native architecture.
 
 ## Table of Contents
 
@@ -21,15 +21,23 @@
 
 ## Project Overview
 
-A **real-time voice interaction system** featuring:
+Enterprise voice interaction system with comprehensive Azure AI Foundry integration:
 
-- **Azure AI Foundry Agent Mode** - Cloud-native multi-agent orchestration eliminating race conditions
-- **Healthcare Caregiver Assistant** with specialized Azure AI agents (InfoAgent, PatientContextAgent, ActionAgent)
-- **Azure Voice Live API** integration with direct agent connection for real-time speech processing  
-- **FastAPI WebSocket** backend with professional web interface
-- **Structured Response System** with appointment preparation checklists
-- **Dual Mode Support** - Voice and Text interaction
-- **Cloud-native deployment** on Azure Container Apps with Azure AI Foundry integration
+**Core Capabilities:**
+- Azure AI Foundry Agent Mode with cloud-native multi-agent orchestration
+- Healthcare Caregiver Assistant powered by specialized Azure AI agents
+- Real-time voice processing through Azure Voice Live API with direct agent connections
+- Professional FastAPI WebSocket backend with enhanced error handling
+- Structured appointment preparation checklist generation
+- Dual interaction modes supporting both voice and text input
+- Production-ready deployment on Azure Container Apps
+
+**Technical Excellence:**
+- Race condition elimination through direct Azure AI Foundry agent connections
+- Professional conversation flow logging and monitoring
+- Secure authentication using Azure DefaultAzureCredential
+- Comprehensive session management and error recovery
+- Premium neural voice synthesis (en-US-Ava:DragonHDLatestNeural)
 
 ## Healthcare Multi-Agent System
 
@@ -79,24 +87,47 @@ Web Client (Professional UI + Card Display)
 
 ## Quick Start
 
-### Local Development
+### Local Development Setup
 
+**Environment Configuration:**
 ```bash
-# 1. Setup environment
+# Navigate to server directory
 cd server
-cp .env.template .env
-# Edit .env with your Azure credentials
 
-# 2. Install dependencies
+# Create environment configuration from template
+cp .env.example .env
+
+# Configure Azure credentials in .env file
+# See .env.example for detailed setup instructions
+```
+
+**Dependency Installation:**
+```bash
+# Create and activate virtual environment
 python -m venv .venv
 .venv\Scripts\activate  # Windows
-pip install .
+# or: source .venv/bin/activate  # Linux/macOS
 
-# 3. Run server (Solution B - Azure AI Foundry Agent Mode)
+# Install application dependencies
+pip install -e .
+```
+
+**Application Startup:**
+```bash
+# Start Azure AI Foundry Agent Mode server
 python app_voice_live_agent_mode.py
 
-# 4. Open client
-# Navigate to: http://localhost:8000/static/voice_test.html
+# Server will be available at http://localhost:8000
+# Voice interface accessible at http://localhost:8000/static/voice_test.html
+```
+
+**Authentication Setup:**
+```bash
+# Option 1: Azure CLI authentication (recommended)
+az login
+
+# Option 2: Configure API key in .env file
+# Set AZURE_VOICE_LIVE_API_KEY in .env
 ```
 
 ### Testing Multi-Agent Voice Interaction
@@ -123,15 +154,16 @@ python app_voice_live_agent_mode.py
 
 ```text
 voice-multi-agent-accelerator/
-├── server/                              # FastAPI backend (Solution B)
-│   ├── app_voice_live_agent_mode.py    # Main server with Azure AI Foundry integration  
-│   ├── voice_live_agent_handler_agent_mode.py # Azure AI Foundry agent handler
-│   ├── logging_config.py               # Professional logging configuration
-│   ├── static/                         # Web client files
-│   │   ├── voice_test.html             # Professional multi-agent UI with card display
-│   │   └── audio-processor.js          # AudioWorklet processor
-│   ├── .env.template                   # Environment variables template
-│   └── pyproject.toml                  # Python dependencies
+├── server/                              # Enterprise FastAPI Backend
+│   ├── app_voice_live_agent_mode.py    # Main application server with comprehensive Azure AI Foundry integration
+│   ├── voice_live_agent_handler_agent_mode.py # Professional agent handler with enhanced error handling
+│   ├── logging_config.py               # Production-grade logging and conversation flow tracking
+│   ├── static/                         # Professional web client interface
+│   │   ├── voice_test.html             # Enhanced multi-agent UI with structured response display
+│   │   └── audio-processor.js          # Optimized AudioWorklet processor for real-time audio
+│   ├── .env.example                    # Comprehensive environment configuration template
+│   ├── README.md                       # Detailed server documentation with setup guides
+│   └── pyproject.toml                  # Python project configuration with complete dependencies
 ├── infra/                              # Azure infrastructure
 │   ├── main.bicep                      # Main Bicep template
 │   ├── main.parameters.json            # Deployment parameters
@@ -157,13 +189,27 @@ voice-multi-agent-accelerator/
 
 ## Core Components
 
-### Azure AI Foundry Agent Integration (`voice_live_agent_handler_agent_mode.py`)
+### Azure AI Foundry Agent Integration Handler
 
-- **Direct Agent Connection**: Uses `agent_id` instead of `model` for Voice Live API
-- **Race Condition Elimination**: No competing AI responses between local and cloud agents
-- **Real-time audio streaming** (PCM binary data)
-- **Premium neural voice**: en-US-Ava:DragonHDLatestNeural
-- **Session management** and error handling with professional logging
+**File: `voice_live_agent_handler_agent_mode.py`**
+
+**Architecture Design:**
+- Direct Azure AI Foundry agent connections using agent_id parameters
+- Race condition elimination through single-source AI responses
+- Comprehensive WebSocket management for bidirectional communication
+- Azure DefaultAzureCredential authentication with API key fallback
+
+**Audio Processing Capabilities:**
+- Real-time PCM binary audio streaming at 24kHz sampling rate
+- Premium neural voice synthesis using en-US-Ava:DragonHDLatestNeural
+- Server-side voice activity detection with configurable thresholds
+- Professional audio transcription using Whisper-1 model
+
+**Session Management:**
+- Automated session configuration for Azure AI Foundry agent mode
+- Professional conversation flow logging and error tracking
+- Graceful error handling and connection recovery
+- Structured logging for production monitoring and debugging
 
 ### Azure AI Foundry Agents (Cloud-Deployed)
 
@@ -173,13 +219,25 @@ voice-multi-agent-accelerator/
 - **ActionAgent** (`asst_iFzbrJduLjccC42HVuFlGmYz`): Generates personalized appointment preparation checklists
 - **Native Azure Orchestration**: Agent-to-agent communication handled by Azure AI Foundry
 
-### FastAPI Server (`app_voice_live_agent_mode.py`)
+### FastAPI Application Server
 
-- **WebSocket endpoint**: `/ws/voice` for real-time communication with Azure AI Foundry agents
-- **HTTP API endpoint**: `/api/query` for direct agent queries
-- **Azure AI Foundry Integration**: Direct connection to deployed agents
-- **Static file serving**: Professional multi-agent web client
-- **Health monitoring**: `/health` endpoint
+**File: `app_voice_live_agent_mode.py`**
+
+**WebSocket Endpoints:**
+- `/ws/voice` - Primary real-time voice communication with Azure AI Foundry agents
+- `/ws/text` - Legacy text-based interaction endpoint for testing
+
+**HTTP API Endpoints:**
+- `/api/query` - Direct agent query interface with structured responses
+- `/health` - Comprehensive health check with configuration validation
+- `/api/agents` - Agent configuration and status debugging interface
+
+**Application Features:**
+- Professional FastAPI application with comprehensive metadata
+- Enhanced WebSocket message handling with proper error recovery
+- Structured session management with unique identifier tracking
+- Professional conversation flow logging for production monitoring
+- Static file serving for professional web interface
 
 ### Professional Web Client (`voice_test.html` + `audio-processor.js`)
 
@@ -317,16 +375,37 @@ AZURE_SPEECH_REGION=your_region
 
 ## Development Workflow
 
-### Local Testing
+### Local Testing and Validation
+
+**Application Startup:**
 
 ```bash
-# Run server (Solution B - Azure AI Foundry Agent Mode)
+# Navigate to server directory
 cd server
-python app_voice_live_agent_mode.py
 
-# Test endpoints
+# Start Azure AI Foundry Agent Mode server
+python app_voice_live_agent_mode.py
+# Server initializes on http://localhost:8000
+```
+
+**Health Verification:**
+
+```bash
+# Verify server health and configuration
 curl http://localhost:8000/health
-# Open: http://localhost:8000/static/voice_test.html
+
+# Test API query endpoint
+curl -X POST http://localhost:8000/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"text": "I need help preparing for my appointment"}'
+```
+
+**Voice Interface Testing:**
+
+```bash
+# Access professional voice interface
+# Navigate to: http://localhost:8000/static/voice_test.html
+# Test real-time voice interaction with Azure AI Foundry agents
 ```
 
 ### Git Workflow
@@ -351,13 +430,23 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 
 ## Project Status
 
-### ✅ COMPLETED: Solution B - Azure AI Foundry Agent Mode
+### COMPLETED: Azure AI Foundry Agent Mode Implementation
 
-- **Azure AI Foundry Integration** - Cloud-native multi-agent orchestration
-- **Race Condition Eliminated** - Direct agent connection prevents competing AI responses
-- **Deployed Production Agents** - All healthcare agents operational in Azure AI Foundry
-- **Azure Voice Live API** - Real-time voice processing with agent mode connection
-- **Professional logging system** - Structured debugging with conversation flow tracking
+**Architecture Excellence:**
+
+- Azure AI Foundry Integration: Cloud-native multi-agent orchestration with production-grade reliability
+- Race Condition Resolution: Direct agent connections eliminate competing AI responses
+- Production Agent Deployment: All healthcare agents operational in Azure AI Foundry with verified agent IDs
+- Voice Processing Integration: Real-time Azure Voice Live API with optimized agent mode connections
+- Enterprise Logging: Professional conversation flow tracking and structured debugging capabilities
+
+**Code Quality Improvements:**
+
+- Comprehensive documentation with professional-grade comments throughout codebase
+- Enhanced error handling and graceful connection recovery mechanisms
+- Improved session management with proper cleanup and resource management
+- Professional FastAPI application structure with comprehensive endpoint documentation
+- Refined Azure AI Foundry agent handler with detailed architecture documentation
 
 ### ✅ COMPLETED: Healthcare Agent System
 
@@ -377,10 +466,19 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 
 ### System Verification Checklist
 
-1. **Run the local server** - `python app_voice_live_agent_mode.py` (Solution B)
-2. **Connect with a voice client** - Professional web interface at `http://localhost:8000/static/voice_test.html`
-3. **Speak the full caregiver query** - Real-time voice input with transcription
-4. **Hear the complete Azure AI Foundry response** - Multi-agent responses via Azure AI Foundry with TTS
+**Server Initialization:**
+- Execute `python app_voice_live_agent_mode.py` for Azure AI Foundry Agent Mode startup
+- Verify health endpoint at `http://localhost:8000/health` shows all configurations as valid
+
+**Voice Interface Validation:**
+- Access professional web interface at `http://localhost:8000/static/voice_test.html`
+- Confirm successful WebSocket connection and Azure AI Foundry agent initialization
+
+**End-to-End Voice Testing:**
+- Initiate voice interaction with healthcare query: "I have chest pain and need to prepare for my appointment"
+- Validate real-time voice transcription and multi-agent response coordination
+- Confirm audio synthesis and playback through premium neural voice (en-US-Ava:DragonHDLatestNeural)
+- Review structured appointment preparation checklist generation
 
 ### ✅ COMPLETED: Azure AI Foundry Migration (Solution B)
 
@@ -448,9 +546,9 @@ azd env get-values
 
 ## Documentation & Support
 
-The repository includes comprehensive documentation organized into logical categories:
+The repository includes comprehensive documentation organized into logical categories for enterprise deployment and maintenance:
 
-### 📚 [Implementation Guides](./docs/implementation-guides/)
+### Implementation Guides
 
 Strategic documentation for understanding and implementing Solution B:
 
@@ -458,7 +556,7 @@ Strategic documentation for understanding and implementing Solution B:
 - **[Solution B Implementation Plan](./docs/implementation-guides/SOLUTION_B_IMPLEMENTATION_PLAN.md)** - Step-by-step implementation checklist
 - **[Azure AI Foundry Agent Instructions](./docs/implementation-guides/AZURE_AI_FOUNDRY_AGENT_INSTRUCTIONS.md)** - Agent configuration details
 
-### 🔧 [Troubleshooting Guides](./docs/troubleshooting-guides/)
+### Troubleshooting Guides
 
 Operational support for common issues:
 
