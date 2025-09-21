@@ -122,7 +122,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
         # Notify client that the voice agent is ready for interaction
         await websocket.send_text(json.dumps({
             "type": "ready", 
-            "text": "Voice Multi-Agent Assistant connected to Azure AI Foundry!",
+            "text": "You are connected to Voice Multi-Agent Assistant!",
             "mode": "azure_ai_foundry_agent",
             "session_id": session_id
         }))
