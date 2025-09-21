@@ -1,24 +1,56 @@
+/*
+  Voice Multi-Agent Accelerator - Infrastructure Deployment
+  
+  This Bicep template deploys the complete Azure infrastructure required for
+  the Voice Multi-Agent system using Azure AI Foundry for healthcare scenarios.
+  
+  Key Resources Deployed:
+  - Azure AI Services (for Voice Live API)
+  - Azure Communication Services (for call center integration)
+  - Container Apps Environment (for hosting the application)
+  - Key Vault (for secure secret management)
+  - Managed Identity (for secure service authentication)
+  - Role-based access control (RBAC) assignments
+  
+  Architecture:
+  Voice Client → Container App → Azure AI Services → Azure AI Foundry Agents
+*/
+
 targetScope = 'subscription'
+
+// ===========================================
+// Core Parameters
+// ===========================================
 
 @minLength(1)
 @maxLength(64)
-@description('Name of the the environment which is used to generate a short unique hash used in all resources.')
+@description('Environment name used to generate unique resource names and enable multi-environment deployments (dev, staging, prod)')
 param environmentName string
 
 @minLength(1)
-@description('Primary location for all resources (filtered on available regions for Azure Open AI Service).')
+@description('Primary Azure region for deployment. Limited to regions with Azure OpenAI Service availability.')
 @allowed([
-  'eastus2'
-  'swedencentral'
+  'eastus2'      // US East 2 - Primary recommended region
+  'swedencentral' // Sweden Central - EU alternative
 ])
 param location string
 
-@description('Create RBAC role assignments (set false if roles were added manually)')
+@description('Whether to create RBAC role assignments automatically. Set to false if roles are managed separately.')
 param createRoleAssignments bool = true
 
+// ===========================================
+// Global Variables
+// ===========================================
+
+// Generate unique suffix for resource names to prevent conflicts
 var uniqueSuffix = substring(uniqueString(subscription().id, environmentName), 0, 5)
 
-var tags = {'azd-env-name': environmentName }
+// Standard tags applied to all resources for governance and cost tracking
+var tags = {
+  'azd-env-name': environmentName
+  project: 'voice-multi-agent-accelerator'
+  architecture: 'azure-ai-foundry'
+}
 var rgName = 'rg-${environmentName}-${uniqueSuffix}'
 // TODO: Allow user to select in runtime
 var modelName = 'gpt-4o-mini'

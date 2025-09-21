@@ -1,7 +1,27 @@
 """
-Solution B: Azure AI Foundry Agent Mode Handler
-Eliminates race condition by connecting directly to Azure AI Foundry agents
-Provides WebSocket integration between Voice Live API and Azure AI Foundry multi-agent system
+Azure AI Foundry Agent Mode Handler
+
+This module provides a WebSocket handler that connects directly to Azure AI Foundry agents
+through the Voice Live API, eliminating race conditions caused by local orchestration.
+
+Key Features:
+- Direct Azure AI Foundry agent integration via Voice Live API
+- Eliminates race conditions between local and remote AI responses
+- Real-time bidirectional audio streaming
+- Azure DefaultAzureCredential authentication with API key fallback
+- Professional conversation flow logging
+
+Architecture:
+- Client WebSocket ←→ VoiceLiveAgentHandler ←→ Azure Voice Live API ←→ Azure AI Foundry Agent
+- Single source of AI responses (no local processing)
+- Preserves multi-agent orchestration defined in Azure AI Foundry
+
+Classes:
+    VoiceLiveAgentHandler: Main handler for Azure AI Foundry agent connections
+
+Functions:
+    session_config(): Session configuration for model-based fallback mode
+    agent_session_config(): Session configuration for Azure AI Foundry agent mode
 """
 
 import asyncio
@@ -12,6 +32,7 @@ import uuid
 import os
 from typing import Optional
 
+from azure.identity import DefaultAzureCredential
 from websockets.asyncio.client import connect as ws_connect
 from websockets.typing import Data
 from logging_config import ConversationFlowLogger, setup_professional_logging
@@ -23,77 +44,176 @@ flow_logger = ConversationFlowLogger(__name__)
 
 
 def session_config():
-    """Returns the session configuration for Azure AI Foundry Agent Mode."""
-    # Get Azure AI Foundry configuration
-    project_id = os.getenv("AZURE_AI_PROJECT_ID", "voice-multi-agent-project")
-    foundry_endpoint = os.getenv("AZURE_AI_FOUNDRY_ENDPOINT")
-    foundry_connection_string = os.getenv("AZURE_AI_FOUNDRY_CONNECTION_STRING")
+    """
+    Session configuration for model-based fallback mode.
     
+    This configuration is used when falling back to direct model interaction
+    instead of Azure AI Foundry agent mode. Includes custom instructions
+    that simulate the multi-agent behavior.
+    
+    Returns:
+        dict: Session configuration with instructions, audio settings, and voice parameters
+    """
     config = {
         "type": "session.update",
         "session": {
             "instructions": "You are connected to an Azure AI Foundry multi-agent system for healthcare appointment preparation. Follow the agent orchestration exactly as configured.",
+            "input_audio_sampling_rate": 24000,
             "turn_detection": {
-                "type": "azure_semantic_vad", 
+                "type": "azure_semantic_vad",
                 "threshold": 0.3,
                 "prefix_padding_ms": 200,
                 "silence_duration_ms": 200,
                 "remove_filler_words": False,
+                "end_of_utterance_detection": {
+                    "model": "semantic_detection_v1",
+                    "threshold": 0.01,
+                    "timeout": 2,
+                },
             },
             "input_audio_noise_reduction": {"type": "azure_deep_noise_suppression"},
             "input_audio_echo_cancellation": {"type": "server_echo_cancellation"},
             "voice": {
                 "name": "en-US-Ava:DragonHDLatestNeural",
-                "type": "azure-standard", 
-                "temperature": 0.1,
+                "type": "azure-standard",
+                "temperature": 0.8,
             },
-            "input_audio_transcription": {
-                "model": "whisper-1"
-            },
+            "input_audio_transcription": {"model": "whisper-1"},
         },
     }
     
-    # Note: Azure AI Foundry project configuration is handled via URL parameters
-    # The agent_id and project_name are passed in the WebSocket URL
     logger.info(f"Session configuration prepared for Azure AI Foundry Agent Mode")
+    return config
+
+def agent_session_config():
+    """
+    Session configuration for Azure AI Foundry Agent Mode.
     
+    This configuration is used for direct agent connections where instructions
+    are pre-configured in the Azure AI Foundry agent and cannot be modified.
+    Uses simplified audio processing parameters that are compatible with agent mode.
+    
+    Key differences from model mode:
+    - No instructions (read-only in agent mode)
+    - Simplified turn detection (server_vad instead of azure_semantic_vad)  
+    - Standard transcription model (whisper-1)
+    - Voice configured for US English (en-US-Ava:DragonHDLatestNeural)
+    
+    Returns:
+        dict: Session configuration optimized for Azure AI Foundry agent mode
+    """
+    config = {
+        "type": "session.update",
+        "session": {
+            # NOTE: No instructions in agent mode - they're pre-configured in Azure AI Foundry
+            "input_audio_sampling_rate": 24000,
+            "turn_detection": {
+                "type": "server_vad",
+                "threshold": 0.5,
+                "prefix_padding_ms": 300,
+                "silence_duration_ms": 200
+            },
+            "voice": {
+                "name": "en-US-Ava:DragonHDLatestNeural",
+                "type": "azure-standard",
+                "temperature": 0.8,
+            },
+            "input_audio_transcription": {"model": "whisper-1"},
+        },
+    }
+    
+    logger.info(f"Agent session configuration prepared for Azure AI Foundry Agent Mode (no instructions)")
     return config
 
 
 class VoiceLiveAgentHandler:
     """
-    Solution B: Azure AI Foundry Agent Mode Handler.
-    Direct agent integration eliminating race conditions by removing local orchestration entirely.
+    Azure AI Foundry Agent Mode WebSocket Handler
+    
+    This handler provides a bridge between client WebSocket connections and Azure AI Foundry
+    agents via the Voice Live API. It eliminates race conditions by bypassing local 
+    orchestration and connecting directly to pre-configured agents.
+    
+    Architecture Flow:
+    1. Client sends audio → VoiceLiveAgentHandler → Voice Live API → Azure AI Foundry Agent
+    2. Azure AI Foundry Agent → Voice Live API → VoiceLiveAgentHandler → Client receives audio
+    
+    Key Features:
+    - Eliminates race conditions (no local AI processing)
+    - Real-time bidirectional audio streaming
+    - Azure DefaultAzureCredential authentication with fallback
+    - Automatic session management and error recovery
+    - Professional conversation flow logging
+    
+    Attributes:
+        endpoint (str): Azure Voice Live API endpoint
+        api_key (str): API key for fallback authentication
+        agent_id (str): Azure AI Foundry agent identifier
+        project_name (str): Azure AI Foundry project name
+        ws: WebSocket connection to Voice Live API
+        send_queue: Async queue for message sending
+        incoming_websocket: Client WebSocket connection
     """
 
     def __init__(self, config):
-        # Basic Voice Live API configuration
+        """
+        Initialize the Azure AI Foundry Agent Handler.
+        
+        Args:
+            config (dict): Configuration dictionary containing:
+                - AZURE_VOICE_LIVE_ENDPOINT: Voice Live API endpoint URL
+                - AZURE_VOICE_LIVE_API_KEY: API key for fallback authentication
+                - AZURE_USER_ASSIGNED_IDENTITY_CLIENT_ID: Optional managed identity client ID
+        
+        Raises:
+            ValueError: If required agent configuration is missing
+        """
+        # Voice Live API Configuration
         self.endpoint = config["AZURE_VOICE_LIVE_ENDPOINT"]
-        self.api_key = config["AZURE_VOICE_LIVE_API_KEY"]
+        self.api_key = config.get("AZURE_VOICE_LIVE_API_KEY")  # Fallback authentication
         self.client_id = config.get("AZURE_USER_ASSIGNED_IDENTITY_CLIENT_ID")
         
-        # Azure AI Foundry Agent ID (from environment)
-        self.agent_id = os.getenv("AZURE_AI_FOUNDRY_AGENT_ID")
-        if not self.agent_id:
-            logger.error("AZURE_AI_FOUNDRY_AGENT_ID is not set! Agent mode requires this.")
-            raise ValueError("AZURE_AI_FOUNDRY_AGENT_ID is required for Agent Mode")
-            
-        # WebSocket management
-        self.send_queue = asyncio.Queue()
-        self.ws = None
-        self.send_task = None
-        self.incoming_websocket = None
-        self.is_raw_audio = True
-        self.is_response_active = False
+        # Azure AI Foundry Agent Configuration
+        # These are loaded from environment variables for security
+        self.agent_id = os.getenv("AI_FOUNDRY_AGENT_ID")
+        self.project_name = os.getenv("AI_FOUNDRY_PROJECT_NAME")
         
-        # NO LOCAL ORCHESTRATION - this eliminates the race condition
-        logger.info(f"VoiceLiveAgentHandler initialized for AI Foundry Agent Mode")
-        logger.info(f"Agent ID: {self.agent_id}")
-        logger.info("Race condition eliminated - no local orchestration callback")
+        # Validate required Azure AI Foundry configuration
+        if not self.agent_id:
+            logger.error("AI_FOUNDRY_AGENT_ID is not configured in environment variables")
+            raise ValueError("AI_FOUNDRY_AGENT_ID is required for Agent Mode")
+        if not self.project_name:
+            logger.error("AI_FOUNDRY_PROJECT_NAME is not configured in environment variables")
+            raise ValueError("AI_FOUNDRY_PROJECT_NAME is required for Agent Mode")
+            
+        # WebSocket Connection Management
+        self.send_queue = asyncio.Queue()          # Queue for outgoing messages
+        self.ws = None                             # Voice Live API WebSocket connection
+        self.send_task = None                      # Background task for message sending
+        self.incoming_websocket = None             # Client WebSocket connection
+        self.is_raw_audio = True                   # Audio format flag
+        self.is_response_active = False            # Response state tracking
+        
+        # Log successful initialization
+        # NOTE: NO LOCAL ORCHESTRATION - this eliminates race conditions
+        logger.info(f"VoiceLiveAgentHandler initialized for Azure AI Foundry Agent Mode")
+        logger.info(f"Agent ID: {self.agent_id}, Project: {self.project_name}")
+        logger.info("Race condition eliminated - using direct agent connection")
 
     def _generate_guid(self):
         """Generate a unique GUID for request tracking."""
         return str(uuid.uuid4())
+
+    def get_azure_token(self) -> str:
+        """Get Azure access token using DefaultAzureCredential (matching working demo)."""
+        try:
+            credential = DefaultAzureCredential()
+            scopes = "https://ai.azure.com/.default"
+            token = credential.get_token(scopes)
+            return token.token
+        except Exception as e:
+            logger.error(f"Failed to get Azure token: {e}")
+            raise
 
     async def connect(self):
         """Connects to Azure Voice Live API with Agent Mode support."""
@@ -109,54 +229,59 @@ class VoiceLiveAgentHandler:
             await self._connect_with_fallback()
 
     async def _connect_with_agent_id(self):
-        """Try connecting with agent_id parameter (Azure AI Foundry native integration)."""
-        # Add Azure AI Foundry project configuration
-        project_name = os.getenv("AZURE_AI_FOUNDRY_PROJECT_NAME", "voice-multi-agent-project")
-        project_id = os.getenv("AZURE_AI_PROJECT_ID", "voice-multi-agent-project")
-        foundry_endpoint = os.getenv("AZURE_AI_FOUNDRY_ENDPOINT")
+        """Try connecting with agent_id parameter (Azure AI Foundry native integration - matching working demo)."""
+        # Get Azure access token (like working demo)
+        access_token = self.get_azure_token()
         
-        # Validate Azure AI Foundry configuration
-        if not project_name and not project_id:
-            logger.error("Azure AI Foundry project configuration missing!")
-            logger.error("Required: Either AZURE_AI_FOUNDRY_PROJECT_NAME or AZURE_AI_PROJECT_ID")
-            raise ValueError("Azure AI Foundry project configuration incomplete")
+        # Build WebSocket URL with correct parameter names (hyphens, not underscores!)
+        azure_ws_endpoint = self.endpoint.rstrip("/").replace("https://", "wss://")
+        url = (
+            f"{azure_ws_endpoint}/voice-live/realtime?api-version=2025-05-01-preview"
+            f"&agent-project-name={self.project_name}&agent-id={self.agent_id}"
+            f"&agent-access-token={access_token}"
+        )
         
-        # Use project_name in URL as per Azure documentation
-        project_param = project_name or project_id
-        url = f"{self.endpoint}/voice-live/realtime?api-version=2025-05-01-preview&agent_id={self.agent_id}&project_name={project_param}"
-        url = url.replace("https://", "wss://")
+        logger.info(f"Trying agent connection: {url.split('&agent-access-token=')[0]}...")  # Don't log token
+        logger.info(f"Azure AI Foundry project: {self.project_name}")
+        logger.info(f"Azure AI Foundry agent: {self.agent_id}")
         
-        logger.info(f"Trying agent_id connection: {url}")
-        logger.info(f"Azure AI Foundry project: {project_param}")
-        
-        headers = {"x-ms-client-request-id": self._generate_guid()}
-        headers["api-key"] = self.api_key
+        # Headers with Azure authentication (like working demo)
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "x-ms-client-request-id": self._generate_guid()
+        }
         
         self.ws = await ws_connect(url, additional_headers=headers)
         logger.info("Voice Live API connection established successfully (Native Agent Mode)")
         
-        # Send session configuration (agent_id and project already in URL)
-        config = session_config()
-        logger.info(f"Sending session config for Azure AI Foundry agent: {self.agent_id}")
+        # Send session configuration (agent mode - no instructions)
+        config = agent_session_config()
+        logger.info(f"Sending agent session config (no instructions) for Azure AI Foundry agent: {self.agent_id}")
         await self._send_json(config)
         await self._initialize_connection("Native Azure AI Foundry Agent Mode")
 
     async def _connect_with_fallback(self):
-        """Fallback connection using model parameter with agent-like instructions."""
+        """Fallback connection using model parameter with agent-like instructions (API key auth)."""
+        if not self.api_key:
+            logger.error("Fallback mode requires AZURE_VOICE_LIVE_API_KEY")
+            raise ValueError("API key required for fallback mode")
+            
         url = f"{self.endpoint}/voice-live/realtime?api-version=2025-05-01-preview&model=gpt-4o-mini"
         url = url.replace("https://", "wss://")
         
         logger.info(f"Using fallback connection: {url}")
         
-        headers = {"x-ms-client-request-id": self._generate_guid()}
-        headers["api-key"] = self.api_key
+        headers = {
+            "x-ms-client-request-id": self._generate_guid(),
+            "api-key": self.api_key
+        }
         
         self.ws = await ws_connect(url, additional_headers=headers)
         logger.info("Voice Live API connection established successfully (Fallback Mode)")
         
         # Send enhanced configuration with agent-like behavior
         config = session_config()
-        config["session"]["instructions"] = f"""You are a healthcare appointment preparation assistant connected to Azure AI Foundry Agent {self.agent_id}. 
+        config["session"]["instructions"] = f"""You are a healthcare appointment preparation assistant (fallback for Azure AI Foundry Agent {self.agent_id}). 
 
 Your role is to help users prepare for medical appointments by:
 1. Gathering information about their appointment and symptoms

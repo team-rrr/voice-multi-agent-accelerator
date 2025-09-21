@@ -1,12 +1,32 @@
 [project]
-name = "voice-multi-agent-accelerator-backend"
-version = "0.1.0"
-description = "Backend service for Voice Multi-Agent Accelerator"
-authors = [ { name = "Team", email = "team@example.com" } ]
+name = "voice-multi-agent-accelerator"
+version = "1.0.0"
+description = "Voice-enabled multi-agent system using Azure AI Foundry for healthcare appointment preparation"
+readme = "README.md"
+authors = [
+    { name = "Azure AI Team", email = "azureai@microsoft.com" }
+]
+license = { text = "MIT" }
 requires-python = ">=3.12"
+keywords = ["azure", "ai", "voice", "multi-agent", "healthcare", "foundry"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License", 
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+
 dependencies = [
-  "fastapi~=0.111.0",
-  "uvicorn[standard]~=0.30.0"
+    "fastapi~=0.111.0",
+    "uvicorn[standard]~=0.30.0",
+    "python-dotenv~=1.0.0",
+    "azure-identity~=1.15.0", 
+    "websockets~=13.0",
+    "pydantic~=2.5.0"
 ]
 
 [project.optional-dependencies]

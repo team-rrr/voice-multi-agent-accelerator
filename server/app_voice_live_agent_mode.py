@@ -1,10 +1,21 @@
 """
-Solution B: Voice Multi-Agent Bot with Azure AI Foundry Agent Mode
-Eliminates race condition by using Azure AI Foundry a    finally:
-        # Clean up handler
-        if 'handler' in locals()    finally:
-        logger.info(f"Text WebSocket connection closed - Session: {session_id}")            await handler.close()
-        logger.info(f"Voice WebSocket connection closed (Agent Mode) - Session: {session_id}")instead of local orchestration
+Voice Multi-Agent Bot with Azure AI Foundry Agent Mode (Solution B)
+
+This implementation eliminates race conditions by using Azure AI Foundry agents 
+directly through the Voice Live API instead of local orchestration.
+
+Key Features:
+- Direct Azure AI Foundry agent integration
+- Eliminates race conditions between local and remote AI responses  
+- Uses DefaultAzureCredential for secure authentication
+- Professional conversation flow logging
+- Voice-optimized multi-agent orchestration
+
+Architecture:
+- Voice Live API connects directly to Azure AI Foundry agents
+- No local LLM processing (eliminates race conditions)
+- Single source of truth for AI responses
+- WebSocket-based real-time voice communication
 """
 
 import os
@@ -19,15 +30,22 @@ from pydantic import BaseModel
 from voice_live_agent_handler_agent_mode import VoiceLiveAgentHandler  # Solution B Azure AI Foundry Agent Mode handler
 from logging_config import ConversationFlowLogger, setup_professional_logging
 
-# Load environment variables
-load_dotenv(dotenv_path='../.env')
+# Load environment variables from current directory (.env)
+load_dotenv()
 
-# Configure professional logging
+# Configure professional logging with conversation flow tracking
 setup_professional_logging(level="INFO")
 logger = logging.getLogger(__name__)
 flow_logger = ConversationFlowLogger(__name__)
 
-app = FastAPI(title="Voice Multi-Agent Bot - Azure AI Foundry Mode", version="1.0.0")
+# Initialize FastAPI application with comprehensive metadata
+app = FastAPI(
+    title="Voice Multi-Agent Bot - Azure AI Foundry Mode", 
+    version="1.0.0",
+    description="Voice-enabled multi-agent system using Azure AI Foundry for healthcare appointment preparation",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -35,105 +53,155 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.websocket("/ws/voice")
 async def websocket_voice_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for voice interaction using Azure AI Foundry Agent Mode (Solution B)."""
+    """
+    Primary WebSocket endpoint for voice interaction using Azure AI Foundry Agent Mode.
+    
+    This endpoint provides real-time voice communication with Azure AI Foundry agents,
+    eliminating race conditions by connecting directly to the Voice Live API.
+    
+    Features:
+    - Real-time audio streaming via WebSocket
+    - Direct Azure AI Foundry agent integration
+    - Professional conversation flow logging
+    - Automatic session management
+    - Health check support (ping/pong)
+    
+    Message Types:
+    - Binary: Raw audio data for voice processing
+    - Text: JSON messages for ping/pong and control
+    """
     await websocket.accept()
     
-    # Generate unique session ID for this WebSocket connection
+    # Generate unique session ID for conversation tracking
     session_id = str(uuid.uuid4())
     flow_logger.conversation_start(session_id, "voice_websocket_agent_mode")
 
-    # Get configuration for Azure AI Foundry Agent Mode (simplified)
+    # Configuration for Azure AI Foundry Agent Mode
+    # Note: Uses DefaultAzureCredential for authentication, API key as fallback
     config = {
         "AZURE_VOICE_LIVE_ENDPOINT": os.getenv("AZURE_VOICE_LIVE_ENDPOINT"),
         "AZURE_VOICE_LIVE_API_KEY": os.getenv("AZURE_VOICE_LIVE_API_KEY"),
         "AZURE_USER_ASSIGNED_IDENTITY_CLIENT_ID": os.getenv("AZURE_USER_ASSIGNED_IDENTITY_CLIENT_ID")
-        # Note: AZURE_AI_FOUNDRY_AGENT_ID is read directly from environment in handler
+        # Agent ID and project name are read directly by the handler
     }
 
-    # Validate configuration
-    if not config["AZURE_VOICE_LIVE_ENDPOINT"] or not config["AZURE_VOICE_LIVE_API_KEY"]:
+    # Validate required Voice Live API configuration
+    if not config["AZURE_VOICE_LIVE_ENDPOINT"]:
         await websocket.send_text(json.dumps({
             "type": "error",
-            "text": "Voice Live API credentials not configured"
+            "text": "AZURE_VOICE_LIVE_ENDPOINT not configured. Please set your Azure AI Foundry endpoint."
         }))
         return
         
-    # Check if Azure AI Foundry Agent ID is configured
+    # Validate Azure AI Foundry Agent configuration
     if not os.getenv("AZURE_AI_FOUNDRY_AGENT_ID"):
         await websocket.send_text(json.dumps({
+            "type": "error", 
+            "text": "AZURE_AI_FOUNDRY_AGENT_ID not configured. Please set your Azure AI Foundry agent ID."
+        }))
+        return
+        
+    if not os.getenv("AI_FOUNDRY_PROJECT_NAME"):
+        await websocket.send_text(json.dumps({
             "type": "error",
-            "text": "AZURE_AI_FOUNDRY_AGENT_ID not configured"
+            "text": "AI_FOUNDRY_PROJECT_NAME not configured. Please set your Azure AI Foundry project name."
         }))
         return
 
-    # Initialize Solution B: Voice Live Agent Handler (eliminates race condition)
+    # Initialize Azure AI Foundry Agent Handler (eliminates race conditions)
     handler = VoiceLiveAgentHandler(config)
     
     try:
-        # Set up client WebSocket connection
+        # Establish client WebSocket connection for real-time audio streaming
         await handler.init_incoming_websocket(websocket, is_raw_audio=True)
         
-        # Connect to Voice Live API in Agent Mode
+        # Connect directly to Azure AI Foundry via Voice Live API
+        # This eliminates race conditions by bypassing local orchestration
         await handler.connect()
         
-        # Send ready message to client
+        # Notify client that the voice agent is ready for interaction
         await websocket.send_text(json.dumps({
             "type": "ready", 
-            "text": "Voice Multi-Agent Assistant is ready!"
+            "text": "Voice Multi-Agent Assistant connected to Azure AI Foundry!",
+            "mode": "azure_ai_foundry_agent",
+            "session_id": session_id
         }))
         
+        # Log successful agent mode initialization
         flow_logger.agent_processing(session_id, "AzureAIFoundry", "agent_mode_initialized")
         
-        # Message handling loop
+        # Main message processing loop - handles real-time voice communication
         while True:
             try:
-                # Receive message from client
+                # Receive message from client (audio data or control messages)
                 message = await websocket.receive()
                 
                 if message["type"] == "websocket.disconnect":
-                    logger.info("Client initiated WebSocket disconnect")
+                    logger.info(f"Client disconnected - Session: {session_id}")
                     break
+                    
                 elif message["type"] == "websocket.receive":
-                    # Handle different message types
+                    # Handle text-based control messages (ping/pong, status)
                     if "text" in message:
-                        # Handle ping messages for connection health checks
-                        data = json.loads(message["text"])
-                        
-                        if data.get("type") == "ping":
-                            # Respond to ping
-                            await websocket.send_text(json.dumps({
-                                "type": "pong",
-                                "text": "Voice Multi-Agent Assistant is ready",
-                                "mode": "azure_ai_foundry_agent"
-                            }))
+                        try:
+                            data = json.loads(message["text"])
                             
+                            # Health check ping - ensure connection is active
+                            if data.get("type") == "ping":
+                                await websocket.send_text(json.dumps({
+                                    "type": "pong",
+                                    "text": "Voice Multi-Agent Assistant is ready",
+                                    "mode": "azure_ai_foundry_agent",
+                                    "session_id": session_id,
+                                    "agent_id": os.getenv("AZURE_AI_FOUNDRY_AGENT_ID")
+                                }))
+                                
+                        except json.JSONDecodeError:
+                            logger.warning(f"Invalid JSON in text message - Session: {session_id}")
+                            
+                    # Handle binary audio data - core voice processing
                     elif "bytes" in message:
-                        # Binary audio data - forward to Azure AI Foundry agents
                         audio_bytes = message["bytes"]
-                        logger.debug(f"Audio data received - Size: {len(audio_bytes)} bytes")
+                        logger.debug(f"Processing audio data - Size: {len(audio_bytes)} bytes, Session: {session_id}")
+                        
+                        # Forward audio directly to Azure AI Foundry via Voice Live API
+                        # This eliminates local processing and race conditions
                         await handler.web_to_voicelive(audio_bytes)
                         
             except WebSocketDisconnect:
-                logger.info("WebSocket disconnected")
+                logger.info(f"WebSocket disconnected during message processing - Session: {session_id}")
                 break
             except Exception as e:
-                logger.error(f"Error processing message: {e}")
+                logger.error(f"Error processing message in session {session_id}: {e}")
+                # Continue processing other messages unless it's a critical error
                 break
 
     except WebSocketDisconnect:
-        logger.info("Client disconnected from voice endpoint")
+        logger.info(f"Client disconnected from voice endpoint - Session: {session_id}")
     except Exception as e:
-        logger.error(f"Voice WebSocket error: {e}")
-        await websocket.send_text(json.dumps({
-            "type": "error",
-            "text": f"Voice Live Agent Mode error: {str(e)}"
-        }))
+        logger.error(f"Voice WebSocket error in session {session_id}: {e}")
+        try:
+            # Attempt to send error message to client if connection is still active
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "text": f"Voice agent connection error: {str(e)}",
+                "session_id": session_id
+            }))
+        except:
+            # Connection may already be closed
+            pass
     finally:
-        # Clean up handler
+        # Ensure proper cleanup of Voice Live API connection
         if 'handler' in locals():
-            await handler.close()
+            try:
+                await handler.close()
+                logger.info(f"Voice handler closed successfully - Session: {session_id}")
+            except Exception as cleanup_error:
+                logger.error(f"Error during handler cleanup - Session: {session_id}: {cleanup_error}")
+        
+        # Log conversation end for tracking
         flow_logger.conversation_start(session_id, "voice_websocket_agent_mode_ended")
-        logger.info("Voice WebSocket connection closed (Agent Mode)")
+        logger.info(f"Voice WebSocket connection closed (Agent Mode) - Session: {session_id}")
 
 
 @app.websocket("/ws/text")
