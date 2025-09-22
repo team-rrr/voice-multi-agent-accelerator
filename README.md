@@ -38,6 +38,8 @@ Enterprise voice interaction system with comprehensive Azure AI Foundry integrat
 - Secure authentication using Azure DefaultAzureCredential
 - Comprehensive session management and error recovery
 - Premium neural voice synthesis (en-US-Ava:DragonHDLatestNeural)
+- Voice-first interface design with enhanced conversation display
+- Real-time user speech transcription and structured response formatting
 
 ## Healthcare Multi-Agent System
 
@@ -132,12 +134,13 @@ az login
 
 ### Testing Multi-Agent Voice Interaction
 
-1. **Connect**: Click "Connect" button
-2. **Voice Mode**: Select "Voice Mode" (default)
-3. **Start Speaking**: Click "Start Speaking"
-4. **Caregiver Query**: Say *"I have chest pain and need to prepare for my appointment with Doctor Smith"*
-5. **Hear Response**: Listen to complete orchestrated response with appointment guidance
-6. **View Checklist**: See structured appointment preparation checklist in the card display
+1. **Connect**: Click "Connect to Assistant" button
+2. **Start Speaking**: Click "Start Speaking" to begin voice interaction
+3. **Voice Input**: Say *"I have chest pain and need to prepare for my appointment with Doctor Smith"*
+4. **View Transcription**: See your speech transcribed in the conversation history
+5. **Hear AI Response**: Listen to complete orchestrated response with appointment guidance
+6. **View Structured Response**: See properly formatted AI response with headers and bullet points
+7. **Review Checklist**: View structured appointment preparation checklist in the card display
 
 ### Sample Interactions
 
@@ -241,12 +244,12 @@ voice-multi-agent-accelerator/
 
 ### Professional Web Client (`voice_test.html` + `audio-processor.js`)
 
-- **Dual Mode Interface**: Voice Mode and Text Mode with clean button layout
-- **Card Display System**: Structured appointment preparation checklists
-- **Enhanced Conversation Formatting**: Proper bullet points, bold text, structured responses
-- **AudioWorklet** for smooth audio playback
-- **Real-time Multi-Agent Responses**: Visual and audio feedback
-- **Professional UI Design**: Fluent UI inspired styling with responsive layout
+- **Voice-First Interface**: Streamlined voice interaction with simplified controls
+- **Card Display System**: Structured appointment preparation checklists with enhanced formatting
+- **Real-Time Transcription Display**: User speech and AI responses shown in conversation history
+- **Enhanced Conversation Formatting**: Professional headers, bullet points, bold text with proper spacing
+- **AudioWorklet Processing**: Smooth real-time audio playback with optimized streaming
+- **Professional UI Design**: Fluent UI inspired styling with responsive voice-focused layout
 
 ## Voice Processing Pipeline
 
