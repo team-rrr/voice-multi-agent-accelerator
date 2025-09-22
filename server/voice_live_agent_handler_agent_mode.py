@@ -364,6 +364,11 @@ Maintain a supportive, professional tone and focus on appointment preparation lo
                         logger.info(f"User transcription: '{transcript}' - Azure AI Foundry agents handling")
                         # NO LOCAL ORCHESTRATION HERE - this eliminates race condition!
                         flow_logger.user_message("agent_mode", transcript, "voice")
+                        
+                        # Send user transcription to frontend for display
+                        await self.send_message(
+                            json.dumps({"Kind": "UserTranscription", "Text": transcript})
+                        )
 
                     case "conversation.item.input_audio_transcription.failed":
                         error_msg = event.get("error")

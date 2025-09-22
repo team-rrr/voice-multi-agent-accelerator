@@ -224,19 +224,7 @@
 
     /* Voice control buttons inherit fluent button styling */
 
-    .text-input-panel {
-      background: white;
-      border-radius: 4px;
-      border: 1px solid var(--fluent-neutral-40);
-      padding: 16px;
-      margin-bottom: 24px;
-      box-shadow: var(--fluent-shadow-2);
-      display: none;
-    }
-
-    .text-input-panel.active {
-      display: block;
-    }
+    /* Text input panel removed - Voice-only mode */
 
     .input-row {
       display: flex;
@@ -481,16 +469,26 @@
     .log-entry .ai-header {
       font-weight: 600;
       font-size: 1.1em;
-      margin: 16px 0 8px 0;
+      margin: 16px 0 12px 0; /* Increased bottom margin for better spacing */
       color: var(--fluent-primary);
       border-bottom: 1px solid var(--fluent-neutral-30);
       padding-bottom: 4px;
+      display: block;
+    }
+
+    /* Ensure headers have proper line breaks after them */
+    .log-entry .ai-header + br,
+    .log-entry div[style*="font-weight: 600"] + br {
+      display: block;
+      margin-bottom: 8px;
     }
 
     .log-entry .ai-list-item {
       margin: 6px 0;
       padding: 4px 0 4px 24px;
       position: relative;
+      display: block;
+      clear: both;
     }
 
     .log-entry .ai-list-number {
@@ -501,15 +499,25 @@
     }
 
     .log-entry .ai-bullet {
-      margin: 4px 0;
+      margin: 6px 0; /* Increased margin for better spacing */
       padding-left: 20px;
       position: relative;
+      display: block;
+      clear: both;
     }
 
     .log-entry .ai-bullet-icon {
       position: absolute;
       left: 4px;
       color: var(--fluent-primary);
+    }
+
+    /* Ensure proper spacing between headers and lists */
+    .log-entry .ai-header + .ai-bullet,
+    .log-entry .ai-header + .ai-list-item,
+    .log-entry div[style*="font-weight: 600"] + .ai-bullet,
+    .log-entry div[style*="font-weight: 600"] + .ai-list-item {
+      margin-top: 8px;
     }
 
     .log-entry {
@@ -674,13 +682,10 @@
 
   <div class="app-container">
     <div class="main-panel">
-      <!-- Mode Selection -->
+      <!-- Voice Mode - Single Mode -->
       <div class="mode-selector">
-        <button class="mode-btn active" onclick="setMode('voice')" id="voiceModeBtn">
+        <button class="mode-btn active" id="voiceModeBtn" disabled>
           Voice Mode
-        </button>
-        <button class="mode-btn" onclick="setMode('text')" id="textModeBtn">
-          Text Mode
         </button>
       </div>
 
@@ -705,14 +710,6 @@
               Stop Speaking
             </button>
           </div>
-        </div>
-      </div>
-
-      <!-- Text Input -->
-      <div class="text-input-panel" id="textInputArea">
-        <div class="input-row">
-          <textarea id="messageInput" class="fluent-textbox" placeholder="Type your message here..." rows="3"></textarea>
-          <button id="sendBtn" onclick="sendTextMessage()" class="fluent-button primary">Send</button>
         </div>
       </div>
 
@@ -822,19 +819,11 @@
     };
 
     function setMode(mode) {
-      currentMode = mode;
+      // Force voice mode only
+      currentMode = 'voice';
       
-      // Update mode buttons
-      document.getElementById('voiceModeBtn').classList.toggle('active', mode === 'voice');
-      document.getElementById('textModeBtn').classList.toggle('active', mode === 'text');
-      
-      // Show/hide voice controls
-      document.getElementById('voiceControls').classList.toggle('active', mode === 'voice');
-      
-      // Show/hide text input area
-      document.getElementById('textInputArea').classList.toggle('active', mode === 'text');
-      
-      addLog(`Switched to ${mode.toUpperCase()} mode`, 'info');
+      // Voice controls are always active
+      document.getElementById('voiceControls').classList.add('active');
     }
 
     function addLog(message, type = 'info') {
@@ -857,14 +846,14 @@
       let actualContent = message;
       
       // For AI responses, separate the prefix from the content and log professionally
-      if (message.includes('🤖 AI Response: ') || message.includes('AI Response: ') || message.includes('📝 ')) {
+      if (message.includes('🤖 AI Response: ') || message.includes('AI Response: ') || message.includes('🤖 ')) {
         let parts;
-        if (message.includes('📝 ')) {
-          parts = message.split('📝 ');
-          displayMessage = '📝 ';
+        if (message.includes('🤖 ')) {
+          parts = message.split('🤖 ');
+          displayMessage = '🤖 ';
         } else {
           parts = message.split(/🤖 AI Response: |AI Response: /);
-          displayMessage = '📝 ';
+          displayMessage = '🤖 ';
         }
         
         if (parts.length > 1) {
@@ -900,7 +889,7 @@
         scrollToLatestEntry(logs, entry);
         
         // For critical content (AI responses), add extra immediate scroll
-        if (type === 'received' && (message.includes('📝') || message.includes('AI Response'))) {
+        if (type === 'received' && (message.includes('🤖') || message.includes('AI Response'))) {
           setTimeout(() => {
             logs.scrollTo({
               top: logs.scrollHeight,
@@ -954,7 +943,7 @@
         'Voice recording stopped', 
         'Processing voice input',
         'AI Response:',
-        '📝',
+        '🤖',
         'Appointment Preparation',
         'speak',
         'listening'
@@ -1107,27 +1096,78 @@
           .replace(/\n\s*\n\s*\n/g, '\n\n')  // Remove triple+ newlines
           .trim();
         
-        // Apply safe HTML formatting step by step using CSS classes
-        let formatted = cleaned
-          // Headers with CSS classes for consistency
-          .replace(/^### (.*$)/gim, '<div class="ai-header">$1</div>')
-          .replace(/^## (.*$)/gim, '<div style="font-weight: 600; font-size: 1.2em; margin: 18px 0 10px 0; color: var(--fluent-primary);">$1</div>')
-          .replace(/^# (.*$)/gim, '<div style="font-weight: 600; font-size: 1.3em; margin: 20px 0 12px 0; color: var(--fluent-primary);">$1</div>')
+        // Process text line by line for better header-bullet spacing
+        let lines = cleaned.split('\n');
+        let processedLines = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+          let line = lines[i].trim();
+          let nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
           
-          // Bold text
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          
-          // Process numbered lists with CSS classes
-          .replace(/^(\d+)\.\s+(.*)$/gm, '<div class="ai-list-item"><span class="ai-list-number">$1.</span>$2</div>')
-          
-          // Process bullet lists with CSS classes
-          .replace(/^\* (.*)$/gm, '<div class="ai-bullet"><span class="ai-bullet-icon">•</span>$1</div>')
-          .replace(/^- (.*)$/gm, '<div class="ai-bullet"><span class="ai-bullet-icon">•</span>$1</div>')
-          .replace(/^• (.*)$/gm, '<div class="ai-bullet"><span class="ai-bullet-icon">•</span>$1</div>')
-          
-          // Line breaks for paragraphs with proper spacing
-          .replace(/\n\n/g, '<div style="margin: 12px 0;"></div>')
-          .replace(/\n/g, '<br>');
+          // Process headers (including bold headers)
+          if (line.match(/^### /)) {
+            let headerText = line.replace(/^### /, '');
+            // Handle bold formatting in headers
+            headerText = headerText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            processedLines.push(`<div class="ai-header">${headerText}</div>`);
+            // Add spacing if next line is a bullet or numbered list
+            if (nextLine.match(/^[\*\-•] /) || nextLine.match(/^\d+\. /)) {
+              processedLines.push('<br>');
+            }
+          } else if (line.match(/^## /)) {
+            let headerText = line.replace(/^## /, '');
+            // Handle bold formatting in headers
+            headerText = headerText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            processedLines.push(`<div style="font-weight: 600; font-size: 1.2em; margin: 18px 0 10px 0; color: var(--fluent-primary);">${headerText}</div>`);
+            // Add spacing if next line is a bullet or numbered list
+            if (nextLine.match(/^[\*\-•] /) || nextLine.match(/^\d+\. /)) {
+              processedLines.push('<br>');
+            }
+          } else if (line.match(/^# /)) {
+            let headerText = line.replace(/^# /, '');
+            // Handle bold formatting in headers
+            headerText = headerText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            processedLines.push(`<div style="font-weight: 600; font-size: 1.3em; margin: 20px 0 12px 0; color: var(--fluent-primary);">${headerText}</div>`);
+            // Add spacing if next line is a bullet or numbered list
+            if (nextLine.match(/^[\*\-•] /) || nextLine.match(/^\d+\. /)) {
+              processedLines.push('<br>');
+            }
+          }
+          // Detect bold text as headers (when it starts with ** and ends with **:)
+          else if (line.match(/^\*\*(.+?)\*\*:?\s*$/)) {
+            let match = line.match(/^\*\*(.+?)\*\*:?\s*$/);
+            let headerText = match[1];
+            processedLines.push(`<div class="ai-header"><strong>${headerText}</strong></div>`);
+            // Add spacing if next line is a bullet or numbered list
+            if (nextLine.match(/^[\*\-•] /) || nextLine.match(/^\d+\. /)) {
+              processedLines.push('<br>');
+            }
+          }
+          // Process numbered lists
+          else if (line.match(/^(\d+)\.\s*(.+)$/)) {
+            let match = line.match(/^(\d+)\.\s*(.+)$/);
+            let itemText = match[2].replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            processedLines.push(`<div class="ai-list-item"><span class="ai-list-number">${match[1]}.</span>${itemText}</div>`);
+          }
+          // Process bullet lists
+          else if (line.match(/^[\*\-•]\s*(.+)$/)) {
+            let match = line.match(/^[\*\-•]\s*(.+)$/);
+            let itemText = match[1].replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            processedLines.push(`<div class="ai-bullet"><span class="ai-bullet-icon">•</span>${itemText}</div>`);
+          }
+          // Regular text lines
+          else if (line) {
+            // Apply bold formatting to regular lines
+            let formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            processedLines.push(formattedLine);
+          }
+          // Empty lines for spacing
+          else {
+            processedLines.push('<div style="margin: 12px 0;"></div>');
+          }
+        }
+        
+        let formatted = processedLines.join('<br>');
         
         // Ensure result is a string
         if (typeof formatted !== 'string') {
@@ -1222,22 +1262,21 @@
     function connectWebSocket() {
       const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
       const wsHost = window.location.host;
-      const endpoint = currentMode === 'voice' ? '/ws/voice' : '/ws/text';
+      const endpoint = '/ws/voice'; // Always use voice endpoint
       
       socket = new WebSocket(`${wsProtocol}://${wsHost}${endpoint}`);
       socket.binaryType = "arraybuffer";
 
       socket.onopen = () => {
-        addLog(`Connected to ${currentMode.toUpperCase()} endpoint`, "received");
-        updateStatus(`Connected in ${currentMode.toUpperCase()} mode`, true);
+        addLog(`Connected to VOICE endpoint`, "received");
+        updateStatus(`Connected in VOICE mode`, true);
 
         document.getElementById("connectBtn").disabled = true;
         document.getElementById("disconnectBtn").disabled = false;
         
-        if (currentMode === 'voice') {
-          document.getElementById("startVoiceBtn").disabled = false;
-          initAudioContext();
-        }
+        // Always enable voice controls since we're voice-only
+        document.getElementById("startVoiceBtn").disabled = false;
+        initAudioContext();
       };
 
       socket.onmessage = async (event) => {
@@ -1276,7 +1315,13 @@
                 workletNode.port.postMessage({ clear: true });
               }
             } else if (data.Kind === "Transcription") {
-              addLog(`📝 ${data.Text}`, "received");
+              // Log AI response transcription correctly
+              ConversationLogger.agentResponse(data.Text);
+              addLog(`🤖 ${data.Text}`, "received");
+            } else if (data.Kind === "UserTranscription") {
+              // Log user speech transcription
+              ConversationLogger.userInput(data.Text, 'voice');
+              addLog(`🎤 You said: ${data.Text}`, "sent");
             } else if (data.Kind === "AudioData" && data.AudioData && data.AudioData.Data) {
               // Fallback: Decode base64 audio data (should not happen with raw_audio=True)
               const base64Audio = data.AudioData.Data;
@@ -1366,7 +1411,7 @@
               if (fullResponse) {
                 console.log('[Debug] Adding processed AI response:', fullResponse);
                 trackActivity(); // Track again when actually displaying the response
-                addLog(`📝 ${fullResponse}`, "received");
+                addLog(`🤖 ${fullResponse}`, "received");
                 
                 // Ensure immediate focus on AI responses in speech conversations
                 setTimeout(() => {
@@ -1410,7 +1455,7 @@
           // Log AI responses immediately in conversation log
           const aiResponseContent = processAIResponse(data);
           if (aiResponseContent) {
-            addLog(`📝 ${aiResponseContent}`, "received");
+            addLog(`🤖 ${aiResponseContent}`, "received");
           }
           break;
         case 'echo':
@@ -1430,10 +1475,9 @@
             
             // Only log final transcripts to avoid spam
             if (!isPartial) {
-              const processedTranscript = processAIResponse({ text: transcriptText });
-              if (processedTranscript) {
-                addLog(`📝 ${processedTranscript}`, "received");
-              }
+              // Log AI response transcription correctly
+              ConversationLogger.agentResponse(transcriptText);
+              addLog(`🤖 ${transcriptText}`, "received");
             }
           }
           break;
@@ -1587,29 +1631,6 @@
           }, 10);
         }
       });
-    }
-
-    function sendTextMessage() {
-      const input = document.getElementById('messageInput');
-      const message = input.value.trim();
-      
-      trackActivity(); // Track user activity for smart scrolling
-      
-      if (message && socket && socket.readyState === WebSocket.OPEN) {
-        const payload = {
-          type: "text",
-          text: message
-        };
-        
-        socket.send(JSON.stringify(payload));
-        ConversationLogger.userInput(message, 'text');
-        addLog(`Sent: ${message}`, "sent");
-        input.value = '';
-        
-        // Update AI status and show thinking indicator for text messages
-
-        showThinkingIndicator();
-      }
     }
 
     async function initAudioContext() {
@@ -1845,13 +1866,6 @@
       const streamingTranscript = document.getElementById('streamingTranscript');
       streamingTranscript.classList.remove('active', 'partial');
     }
-
-    // Allow Enter key to send message in text mode
-    document.getElementById('messageInput').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        sendTextMessage();
-      }
-    });
 
     // Initialize the application
     document.addEventListener('DOMContentLoaded', function() {

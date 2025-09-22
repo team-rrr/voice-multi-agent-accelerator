@@ -5,7 +5,9 @@ Enterprise voice-enabled multi-agent system using Azure AI Foundry for healthcar
 ## Features
 
 - **Direct Azure AI Foundry Integration**: Connects to pre-configured agents eliminating race conditions
-- **Real-time Voice Processing**: WebSocket-based bidirectional audio streaming  
+- **Real-time Voice Processing**: WebSocket-based bidirectional audio streaming with user transcription display
+- **Voice-First Interface**: Streamlined interface focused on voice interaction
+- **Enhanced Conversation Display**: Professional formatting with headers, bullet points, and structured responses
 - **Secure Authentication**: Azure DefaultAzureCredential with API key fallback
 - **Professional Logging**: Comprehensive conversation flow tracking
 - **Healthcare Optimized**: Multi-agent orchestration for appointment preparation
@@ -119,7 +121,16 @@ curl http://localhost:8000/health
 ### 2. Voice Interface
 Navigate to `http://localhost:8000/static/voice_test.html`
 
+**Interface Features:**
+
+- Voice-first design with streamlined controls
+- Real-time user speech transcription display
+- Professional AI response formatting with headers and bullet points
+- Structured appointment preparation checklists
+- Enhanced conversation history with proper spacing
+
 ### 3. API Query
+
 ```bash
 curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
@@ -128,7 +139,7 @@ curl -X POST http://localhost:8000/api/query \
 
 ## Project Structure
 
-```
+```text
 server/
 ├── app_voice_live_agent_mode.py          # Main FastAPI application
 ├── voice_live_agent_handler_agent_mode.py # Azure AI Foundry handler
@@ -163,16 +174,19 @@ flow_logger.conversation_start(session_id, "voice_websocket_agent_mode")
 
 ### Common Issues
 
-**"AI_FOUNDRY_AGENT_ID not configured"**
+#### AI_FOUNDRY_AGENT_ID not configured
+
 - Ensure environment variables are set in `.env`
 - Check Azure AI Foundry project and agent configuration
 
-**"Voice Live API connection failed"**  
+#### Voice Live API connection failed
+
 - Verify `AZURE_VOICE_LIVE_ENDPOINT` is correct
 - Ensure authentication is working (`az login`)
 - Check Azure AI Services resource permissions
 
-**"No audio output"**
+#### No audio output
+
 - Verify voice configuration in session config
 - Check browser microphone permissions
 - Test with `/health` endpoint
@@ -180,6 +194,7 @@ flow_logger.conversation_start(session_id, "voice_websocket_agent_mode")
 ### Debug Mode
 
 Enable debug logging:
+
 ```python
 # In logging_config.py
 setup_professional_logging(level="DEBUG")
