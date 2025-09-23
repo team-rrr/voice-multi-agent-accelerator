@@ -100,13 +100,28 @@ module registry 'modules/containerregistry.bicep' = {
 
 
 module aiServices 'modules/aiservices.bicep' = {
-  name: 'ai-foundry-deployment'
+  name: 'ai-services-deployment'
   scope: rg
   params: {
     environmentName: environmentName
     uniqueSuffix: uniqueSuffix
     identityId: appIdentity.outputs.identityId
     tags: tags
+  }
+}
+
+// Azure AI Foundry Hub for multi-agent orchestration
+module aiFoundryHub 'modules/aifoundryhub.bicep' = {
+  name: 'ai-foundry-hub-deployment'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    uniqueSuffix: uniqueSuffix
+    tags: tags
+    identityId: appIdentity.outputs.identityId
+    keyVaultId: keyvault.outputs.keyVaultId
+    appInsightsId: monitoring.outputs.appInsightsId
   }
 }
 
@@ -169,8 +184,9 @@ module RoleAssignments 'modules/roleassignments.bicep' = if (createRoleAssignmen
     identityPrincipalId: appIdentity.outputs.principalId
     aiServicesId: aiServices.outputs.aiServicesId
     keyVaultName: sanitizedKeyVaultName
+    aiFoundryHubId: aiFoundryHub.outputs.aiFoundryHubId
   }
-  dependsOn: [ keyvault ]
+
 }
 
 // Container App dependency array to ensure ordering if role assignments are created
@@ -193,6 +209,10 @@ module containerapp 'modules/containerapp.bicep' = {
     logAnalyticsWorkspaceName: logAnalyticsName
     openAIEndpoint: openAIAccount.outputs.openAIEndpoint
     keyVaultName: sanitizedKeyVaultName
+    aiFoundryHubEndpoint: aiFoundryHub.outputs.aiFoundryHubEndpoint
+    aiFoundryWorkspaceId: aiFoundryHub.outputs.workspaceId
+    identityClientId: appIdentity.outputs.clientId
+    imageName: ''
   }
   dependsOn: containerAppDeps
 }
@@ -209,5 +229,10 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = registry.outputs.loginServer
 
 // Convenience outputs for OpenAI (optional consumption by app/local tooling)
 output AZURE_OPENAI_ENDPOINT string = openAIAccount.outputs.openAIEndpoint
+
+// Azure AI Foundry Hub outputs for agent configuration
+output AZURE_AI_FOUNDRY_ENDPOINT string = aiFoundryHub.outputs.aiFoundryHubEndpoint
+output AZURE_AI_FOUNDRY_HUB_NAME string = aiFoundryHub.outputs.aiFoundryHubName
+output AZURE_AI_FOUNDRY_WORKSPACE_ID string = aiFoundryHub.outputs.workspaceId
 
 output SERVICE_API_ENDPOINTS array = ['${containerapp.outputs.containerAppFqdn}/acs/incomingcall']

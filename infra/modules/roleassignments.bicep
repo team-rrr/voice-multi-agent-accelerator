@@ -1,6 +1,7 @@
 param identityPrincipalId string
 param aiServicesId string
 param keyVaultName string
+param aiFoundryHubId string = ''
 
 resource aiServicesResource 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
   name: last(split(aiServicesId, '/'))
@@ -28,6 +29,21 @@ resource keyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04
   scope: keyVault
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
+    principalId: identityPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Azure AI Foundry Hub role assignment (if hub is deployed)
+resource aiFoundryHubResource 'Microsoft.MachineLearningServices/workspaces@2024-10-01' existing = if (!empty(aiFoundryHubId)) {
+  name: last(split(aiFoundryHubId, '/'))
+}
+
+resource aiFoundryHubRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(aiFoundryHubId)) {
+  name: guid(aiFoundryHubId, identityPrincipalId, 'AzureML Data Scientist')
+  scope: aiFoundryHubResource
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f6c7c914-8db3-469d-8ca1-694a8f32e121')
     principalId: identityPrincipalId
     principalType: 'ServicePrincipal'
   }

@@ -1,4 +1,9 @@
-# Provision and Deployment Troubleshooting Guide
+# Provision a| 6 | `resource not found: ... tagged with 'azd-service-name: backend'` | Container App tagged with `azd-service-name: app` but `azure.yaml` service name is `backend` | Updated tag to `backend` in `containerapp.bicep` and reprovisioned |
+| 7 | Container App image is placeholder | Initial scaffold used sample image | Plan to replace with built ACR image (`backend:latest`) |
+| 8 | `MANIFEST_UNKNOWN: manifest tagged by "latest" is not found` | Container App trying to pull non-existent image tag | Updated Bicep template to use existing image with specific tag |
+| 9 | Network connectivity issues (`ConnectionResetError`) | Azure CLI/ACR build network connectivity problems | Retry commands, use existing images from registry |
+| 10 | Dockerfile references wrong Python file | Dockerfile CMD pointed to `app_voice_live:app` instead of `app_voice_live_agent_mode:app` | Updated Dockerfile CMD entry point |
+| 11 | Bicep secrets configuration error | Secrets property outside configuration object in container app Bicep | Fixed indentation and structure of secrets in Bicep template | Deployment Troubleshooting Guide
 
 This document captures the real issues encountered and the steps taken to achieve a successful `azd provision` and `azd deploy backend` for this accelerator.
 
@@ -231,7 +236,112 @@ az containerapp logs show -g <rg> -n <container-app-name> --follow
 
 ---
 
-## 12. Future Hardening Ideas
+## 12. Recent Deployment Issues (September 2025)
+
+### Container App Image Issues
+
+**Symptom:**
+```text
+MANIFEST_UNKNOWN: manifest tagged by "latest" is not found
+```
+
+**Root Cause:** Container App Bicep template references `backend:latest` but actual images have different naming convention.
+
+**Resolution Steps:**
+
+1. **Check existing images in ACR:**
+```pwsh
+az acr repository list --name acrrgdev6uvq7
+az acr repository show-tags --name acrrgdev6uvq7 --repository voice-multi-agent-accelerator/backend-dev
+```
+
+2. **Update Bicep template to use existing image:**
+```bicep
+image: '${containerRegistryName}.azurecr.io/voice-multi-agent-accelerator/backend-dev:azd-deploy-1758111171'
+```
+
+### Dockerfile Application Entry Point
+
+**Symptom:** Container fails to start with wrong Python module reference.
+
+**Resolution:** Update Dockerfile CMD:
+```dockerfile
+CMD ["uvicorn", "app_voice_live_agent_mode:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Bicep Template Structure Issues
+
+**Symptom:** Bicep compilation errors with secrets configuration.
+
+**Resolution:** Ensure proper indentation:
+```bicep
+configuration: {
+  secrets: concat(baseSecrets, openAISecret)
+  registries: [...]
+}
+```
+
+### Network Connectivity Issues
+
+**Symptom:**
+```text
+Connection aborted, ConnectionResetError(10054)
+```
+
+**Workaround:** 
+- Retry commands multiple times
+- Use existing images instead of building new ones
+- Check network firewall settings
+
+---
+
+## 13. Azure AI Foundry Infrastructure
+
+### New Resources Added
+
+The infrastructure now includes Azure AI Foundry Hub:
+
+```bicep
+module aiFoundryHub 'modules/aifoundryhub.bicep' = {
+  name: 'ai-foundry-hub-deployment'
+  // Creates AI Foundry Hub for multi-agent orchestration
+}
+```
+
+**Key Environment Variables Created:**
+- `AZURE_AI_FOUNDRY_ENDPOINT`
+- `AZURE_AI_FOUNDRY_HUB_NAME`
+- `AZURE_AI_FOUNDRY_WORKSPACE_ID`
+
+### Container App Environment Variables
+
+Updated to include Azure AI Foundry agent configuration:
+- `AI_FOUNDRY_PROJECT_NAME`
+- `AZURE_AI_ORCHESTRATOR_AGENT_ID`
+- `AZURE_AI_INFO_AGENT_ID`
+- `AZURE_AI_PATIENT_CONTEXT_AGENT_ID`
+- `AZURE_AI_ACTION_AGENT_ID`
+
+---
+
+## 14. Successful Deployment Verification
+
+After successful `azd up`, verify:
+
+```pwsh
+# Check all environment values
+azd env get-values
+
+# Expected key values:
+AZURE_AI_FOUNDRY_ENDPOINT="https://aihub-dev-6uvq7.api.azureml.ms"
+AZURE_AI_FOUNDRY_HUB_NAME="aihub-dev-6uvq7"
+AZURE_AI_FOUNDRY_WORKSPACE_ID="ceead15b-9209-492e-ab73-069e43269e3d"
+SERVICE_BACKEND_IMAGE_NAME="acrrgdev6uvq7.azurecr.io/voice-multi-agent-accelerator/backend-dev:azd-deploy-1758111171"
+```
+
+---
+
+## 15. Future Hardening Ideas
 
 - Add health probe & liveness config.
 - Separate `createAcrPullAssignment` from general RBAC toggle (currently reused).

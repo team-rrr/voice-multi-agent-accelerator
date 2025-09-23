@@ -6,3 +6,5 @@ azure-ai-voicelive
 semantic-kernel
 pydantic
 aiohttp
+azure-identity
+azure-ai-ml

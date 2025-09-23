@@ -16,6 +16,18 @@ param openAISecretName string = 'AZURE-OPENAI-API-KEY'
 @description('Key Vault name (without https:// and domain) hosting secrets.')
 param keyVaultName string
 
+@description('Azure AI Foundry Hub endpoint for agent orchestration')
+param aiFoundryHubEndpoint string = ''
+
+@description('Azure AI Foundry Hub workspace ID for agent deployment')
+param aiFoundryWorkspaceId string = ''
+
+@description('Client ID of the user-assigned managed identity')
+param identityClientId string
+
+@description('Container image name to deploy')
+param imageName string = ''
+
 // Helper to sanitize environmentName for valid container app name
 var sanitizedEnvName = toLower(replace(replace(replace(replace(environmentName, ' ', '-'), '--', '-'), '[^a-zA-Z0-9-]', ''), '_', '-'))
 var containerAppName = take('ca-${sanitizedEnvName}-${uniqueSuffix}', 32)
@@ -67,6 +79,54 @@ var baseEnv = [
     value: 'true'
   }
 ]
+
+// Azure AI Foundry environment variables
+var aiFoundryEnv = empty(aiFoundryHubEndpoint) ? [] : [
+  {
+    name: 'AZURE_AI_FOUNDRY_ENDPOINT'
+    value: aiFoundryHubEndpoint
+  }
+  {
+    name: 'AI_FOUNDRY_PROJECT_NAME'
+    value: '${environmentName}-project'
+  }
+  {
+    name: 'AI_FOUNDRY_AGENT_ID'
+    value: 'orchestrator-agent'
+  }
+  {
+    name: 'AZURE_AI_FOUNDRY_AGENT_ID'
+    value: 'orchestrator-agent'  
+  }
+  {
+    name: 'AZURE_AI_ORCHESTRATOR_AGENT_ID'
+    value: 'orchestrator-agent'
+  }
+  {
+    name: 'AZURE_AI_INFO_AGENT_ID'
+    value: 'info-agent'
+  }
+  {
+    name: 'AZURE_AI_PATIENT_CONTEXT_AGENT_ID'
+    value: 'patient-context-agent'
+  }
+  {
+    name: 'AZURE_AI_ACTION_AGENT_ID'
+    value: 'action-agent'
+  }
+  {
+    name: 'VOICE_LIVE_AGENT_ID'
+    value: 'orchestrator-agent'
+  }
+  {
+    name: 'AZURE_USER_ASSIGNED_IDENTITY_CLIENT_ID'
+    value: identityClientId
+  }
+  {
+    name: 'AZURE_AI_FOUNDRY_WORKSPACE_ID'
+    value: aiFoundryWorkspaceId
+  }
+]
 var openAIEnv = empty(openAIEndpoint) ? [] : [
   {
     name: 'AZURE_OPENAI_ENDPOINT'
@@ -77,7 +137,7 @@ var openAIEnv = empty(openAIEndpoint) ? [] : [
     secretRef: 'azure-openai-api-key'
   }
 ]
-var allEnv = concat(baseEnv, openAIEnv)
+var allEnv = concat(baseEnv, openAIEnv, aiFoundryEnv)
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = { name: logAnalyticsWorkspaceName }
 
@@ -122,13 +182,13 @@ resource containerApp 'Microsoft.App/containerApps@2024-10-02-preview' = {
           identity: identityId
         }
       ]
-  secrets: concat(baseSecrets, openAISecret)
+      secrets: concat(baseSecrets, openAISecret)
     }
     template: {
       containers: [
         {
           name: 'main'
-          image: '${containerRegistryName}.azurecr.io/backend:latest'
+          image: !empty(imageName) ? imageName : '${containerRegistryName}.azurecr.io/voice-multi-agent-accelerator/backend-dev:azd-deploy-1758111171'
           env: allEnv
           resources: {
             cpu: json('0.25')

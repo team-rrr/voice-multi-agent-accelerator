@@ -68,16 +68,28 @@ Server starts on `http://localhost:8000`
 
 ## Configuration
 
-### Required Environment Variables
+### ✅ Deployed Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `AI_FOUNDRY_PROJECT_NAME` | Azure AI Foundry project name | `voice-multi-agent-project` |
-| `AI_FOUNDRY_AGENT_ID` | Agent ID from Azure AI Foundry | `asst_abc123...` |
-| `AZURE_VOICE_LIVE_ENDPOINT` | Voice Live API endpoint | `https://your-resource.cognitiveservices.azure.com` |
-| `AZURE_SPEECH_KEY` | Speech service API key | `your-speech-key` |
-| `AZURE_SPEECH_REGION` | Speech service region | `eastus2` |
-| `ACS_CONNECTION_STRING` | Communication Services connection | `endpoint=https://...` |
+The infrastructure deployment has configured these environment variables:
+
+| Variable | Value (Deployed) | Purpose |
+|----------|------------------|---------|
+| `AZURE_AI_FOUNDRY_ENDPOINT` | `https://aihub-dev-6uvq7.api.azureml.ms` | AI Foundry Hub endpoint |
+| `AI_FOUNDRY_PROJECT_NAME` | `dev-project` | Azure AI Foundry project name |
+| `AZURE_AI_ORCHESTRATOR_AGENT_ID` | `orchestrator-agent` | Orchestrator agent ID |
+| `AZURE_AI_INFO_AGENT_ID` | `info-agent` | Info agent ID |
+| `AZURE_AI_PATIENT_CONTEXT_AGENT_ID` | `patient-context-agent` | Patient context agent ID |
+| `AZURE_AI_ACTION_AGENT_ID` | `action-agent` | Action agent ID |
+| `AZURE_VOICE_LIVE_ENDPOINT` | Configured via Key Vault | Voice Live API endpoint |
+| `AZURE_USER_ASSIGNED_IDENTITY_CLIENT_ID` | `4dbe675e-e044-4f6a-bc41-8cba2fc9a1b9` | Managed identity client ID |
+
+### Additional Configuration Needed
+
+After infrastructure deployment, you'll need to:
+
+1. **Create actual agents in Azure AI Foundry Studio**
+2. **Update agent IDs with real Azure AI Foundry agent IDs** 
+3. **Configure agent prompts and instructions**
 
 ### Authentication Options
 
