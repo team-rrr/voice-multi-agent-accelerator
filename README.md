@@ -171,16 +171,22 @@ voice-multi-agent-accelerator/
 │   ├── main.bicep                      # Main Bicep template
 │   ├── main.parameters.json            # Deployment parameters
 │   └── modules/                        # Bicep modules
-├── docs/                               # Organized documentation
-│   ├── agent-prompts/                  # Original agent system prompts
+├── docs/                               # Comprehensive documentation
+│   ├── agent-prompts/                  # Agent system prompts for Azure AI Foundry
 │   ├── implementation-guides/          # Strategic implementation documentation
+│   │   ├── README.md                   # Implementation overview and status
 │   │   ├── SOLUTION_B_MIGRATION_STRATEGY.md
 │   │   ├── SOLUTION_B_IMPLEMENTATION_PLAN.md
 │   │   └── AZURE_AI_FOUNDRY_AGENT_INSTRUCTIONS.md
-│   └── troubleshooting-guides/         # Operational support guides
-│       ├── PROVISION_AND_DEPLOYMENT_TROUBLESHOOTING.md
-│       ├── SOLUTION_B_TESTING_GUIDE.md
-│       └── VOICE_LIVE_API_RACE_CONDITION.md
+│   ├── deployment/                     # Infrastructure deployment guides
+│   │   ├── AZURE_INFRASTRUCTURE_DEPLOYMENT_GUIDE.md  # Complete azd deployment guide
+│   │   └── DEPLOYMENT_STATUS_REPORT.md               # Current deployment status
+│   ├── troubleshooting-guides/         # Operational support guides
+│   │   ├── README.md                   # Troubleshooting overview
+│   │   ├── PROVISION_AND_DEPLOYMENT_TROUBLESHOOTING.md  # Deployment issue resolution
+│   │   ├── SOLUTION_B_TESTING_GUIDE.md
+│   │   └── VOICE_LIVE_API_RACE_CONDITION.md
+│   └── DOCUMENTATION_UPDATE_SUMMARY.md # Summary of all documentation updates
 ├── obsolete-files/                     # Archived Solution A files
 │   ├── app_voice_live.py              # Original server (Semantic Kernel)
 │   ├── voice_live_handler.py          # Original handler
@@ -459,13 +465,31 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 - **ActionAgent** (`asst_iFzbrJduLjccC42HVuFlGmYz`) - Personalized preparation checklist generation
 - **Native Azure Orchestration** - Agent-to-agent coordination handled by Azure AI Foundry
 
-### ✅ COMPLETED: Infrastructure & Deployment
+### ✅ COMPLETED: Full Azure Infrastructure Deployment
 
-- **Real-time audio streaming** - WebSocket-based PCM audio pipeline
-- **Azure deployment infrastructure** - Container Apps with Bicep templates
-- **Security best practices** - Managed Identity, Key Vault, RBAC
-- **Professional UI** with card display and conversation formatting
-- **Repository Organization** - Clean separation of active code, obsolete files, and documentation
+**Successfully Deployed Resources (September 2025):**
+- ✅ **Azure AI Foundry Hub**: `aihub-dev-6uvq7` - Multi-agent orchestration platform
+- ✅ **Container Apps Environment**: `cae-dev-6uvq7` - Serverless application hosting  
+- ✅ **Container App**: `ca-dev-6uvq7` - FastAPI application running
+- ✅ **Azure AI Services**: `aiServices-dev-6uvq7` - Voice Live API integration
+- ✅ **Azure OpenAI**: `oai-dev-6uvq7` - GPT-4o-mini model deployed
+- ✅ **Container Registry**: `acrrgdev6uvq7` - Docker images stored
+- ✅ **Key Vault**: `kvcvoice6uvq7` - Secure secret management
+- ✅ **Storage Account**: `staihubdev6uvq7` - AI Hub storage
+- ✅ **Managed Identity**: Secure service authentication configured
+- ✅ **Monitoring**: Application Insights and Log Analytics operational
+
+**Infrastructure Validation:**
+```powershell
+# Verify deployment
+azd show
+# ✅ All resources operational
+# ✅ Service endpoints accessible  
+# ✅ Environment variables configured
+```
+
+**Ready for Agent Configuration:**
+The infrastructure is now fully deployed and ready for Azure AI Foundry agent deployment phase.
 
 ### System Verification Checklist
 
@@ -502,7 +526,19 @@ docker run -p 8000:8000 --env-file server/.env voice-app
 
 ## Deploying Infrastructure (Azure Developer CLI)
 
-Prerequisites:
+### ✅ Successfully Deployed Infrastructure
+
+The infrastructure has been **successfully deployed** using `azd up` with the following components:
+
+**Core Resources Created:**
+- **Resource Group**: `rg-dev-6uvq7`
+- **Azure AI Foundry Hub**: `aihub-dev-6uvq7` 
+- **Container App**: `ca-dev-6uvq7.lemondune-86508fd9.eastus2.azurecontainerapps.io`
+- **Azure AI Services**: `aiServices-dev-6uvq7`
+- **Container Registry**: `acrrgdev6uvq7.azurecr.io`
+- **Key Vault**: `kvcvoice6uvq7`
+
+### Prerequisites for Fresh Deployment:
 
 1. Install Azure CLI (<https://learn.microsoft.com/cli/azure/install-azure-cli>)
 2. Install Azure Developer CLI (<https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd>)
@@ -513,16 +549,30 @@ az login
 azd auth login
 ```
 
-Provision (creates resource group + core services):
+### Deploy Complete Infrastructure:
 
 ```pwsh
+# Deploy everything (infrastructure + application)
 azd up
+
+# Or provision infrastructure only
+azd provision
+
+# Or deploy application only (after provision)
+azd deploy
 ```
 
-If you only want to (re)provision infra without rebuilding/publishing the container image:
+### Verify Deployment:
 
 ```pwsh
-azd provision
+# Check deployment status
+azd show
+
+# Get all environment variables
+azd env get-values
+
+# Test the deployed application
+curl https://ca-dev-6uvq7.lemondune-86508fd9.eastus2.azurecontainerapps.io/health
 ```
 
 ## Parameters & Environment Flags
